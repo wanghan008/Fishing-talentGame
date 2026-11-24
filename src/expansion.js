@@ -98,7 +98,7 @@ function resizeGame(){
  if(!game.stage||!game.container)return;
  var w=Math.max(320,Math.round(window.visualViewport?window.visualViewport.width:window.innerWidth));
  var h=Math.max(320,Math.round(window.visualViewport?window.visualViewport.height:window.innerHeight));
- if(Math.abs(w-game.width)<2&&Math.abs(h-game.height)<2)return;
+
  game.width=w;game.height=h;game.screenWidth=w;game.screenHeight=h;
  game.container.style.width=w+"px";game.container.style.height=h+"px";
  game.stage.width=w;game.stage.height=h;
@@ -116,7 +116,7 @@ function resizeGame(){
  if(game.stage.updatePosition)game.stage.updatePosition();
 }
 function init(){
- loadState();addProgressUI();
+ loadState();addProgressUI();resizeGame();
  if(game.player){game.player.cannon.setPower(state.cannonLevel,false);}
  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
   var value=fish.coin;
