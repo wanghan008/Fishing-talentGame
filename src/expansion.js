@@ -67,8 +67,20 @@ function scheduleCloudSave(){
  if(cloudSaveTimer)clearTimeout(cloudSaveTimer);
  cloudSaveTimer=setTimeout(function(){
   fetch("/api/save",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({save:exportSave()})})
-   .then(function(r){if(!r.ok)throw new Error("云端存档同步失败");return r.json();})
-   .catch(function(){notice("云端同步暂时失败，进度已保存在本机");});
+   .then(function(r){return r.json().catch(function(){return {};}).then(function(data){
+    if(!r.ok){
+     var msg=data.error||("HTTP "+r.status);
+     if(data.code)msg+="；定位代码："+data.code;
+     if(data.traceId)msg+="；编号："+data.traceId;
+     if(data.diagnostic){
+      if(data.diagnostic.receivedOrigin)msg+="；网页来源："+data.diagnostic.receivedOrigin+"；API来源："+data.diagnostic.apiOrigin+"；Host："+data.diagnostic.host;
+      else if(data.diagnostic.message)msg+="；底层错误："+data.diagnostic.name+"："+data.diagnostic.message;
+     }
+     throw new Error(msg);
+    }
+    notice("云端存档同步成功");
+   });})
+   .catch(function(err){notice("云端同步失败："+err.message);});
  },900);
 }
 function saveState(){
