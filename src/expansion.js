@@ -153,7 +153,38 @@ function showAccountModal(){
  nameLabel.appendChild(nameInput);passLabel.appendChild(passInput);
  form.appendChild(nameLabel);form.appendChild(nameInput);form.appendChild(passLabel);form.appendChild(passInput);form.appendChild(hint);form.appendChild(error);form.appendChild(submit);
  panel.appendChild(heading);panel.appendChild(tabs);panel.appendChild(form);
- if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);}
+ if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);
+  var deleteButton=makeButton("注销账号",function(){deletePanel.style.display=deletePanel.style.display==="none"?"block":"none";});
+  deleteButton.style.cssText+="width:100%;margin-top:8px;border-color:#ff8d82;color:#ffd0ca;";
+  panel.appendChild(deleteButton);
+  var deletePanel=document.createElement("div");
+  deletePanel.style.cssText="display:none;margin-top:10px;padding:12px;border:1px solid #b85b54;border-radius:9px;background:rgba(80,15,15,.35);";
+  var deleteWarning=document.createElement("div");
+  deleteWarning.textContent="危险操作：注销后账号资料、云端存档和所有登录会话将被永久删除，无法恢复。请输入当前账号密码进行验证。";
+  deleteWarning.style.cssText="font-size:12px;line-height:1.6;color:#ffd0ca;margin-bottom:9px;";
+  var deletePassword=document.createElement("input");
+  deletePassword.type="password";deletePassword.autocomplete="current-password";deletePassword.maxLength=72;deletePassword.placeholder="输入当前账号密码";
+  deletePassword.style.cssText="box-sizing:border-box;width:100%;padding:11px;border-radius:7px;border:1px solid #b85b54;font-size:16px;margin-bottom:8px;";
+  var deleteError=document.createElement("div");
+  deleteError.style.cssText="color:#ffb1a8;font-size:12px;min-height:16px;margin-bottom:6px;";
+  var confirmDelete=makeButton("验证密码并永久注销",function(){
+   var password=deletePassword.value;
+   if(!password){deleteError.textContent="请先输入账号密码";return;}
+   if(!window.confirm("确定永久注销账号“"+cloudUser.username+"”吗？账号和云端存档删除后无法恢复。"))return;
+   confirmDelete.disabled=true;deleteError.textContent="正在验证密码并注销...";
+   apiRequest("/api/delete-account",{password:password}).then(function(){
+    try{localStorage.removeItem("fishjoy_account_cache_"+cloudUser.id);}catch(e){}
+    deletePassword.value="";
+    restoreGuestSave();closeAccountModal();
+    notice("账号已注销，已切换到游客模式");
+   }).catch(function(err){
+    deleteError.textContent=err.message;confirmDelete.disabled=false;
+   });
+  });
+  confirmDelete.style.cssText+="width:100%;background:#a83232;border-color:#ff9c91;";
+  deletePanel.appendChild(deleteWarning);deletePanel.appendChild(deletePassword);deletePanel.appendChild(deleteError);deletePanel.appendChild(confirmDelete);
+  panel.appendChild(deletePanel);
+}
  panel.appendChild(close);accountModal.appendChild(panel);document.body.appendChild(accountModal);
  function render(){
   loginTab.style.opacity=accountMode==="login"?"1":".55";registerTab.style.opacity=accountMode==="register"?"1":".55";
