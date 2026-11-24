@@ -1,5 +1,6 @@
 const SESSION_DAYS = 30;
-const PBKDF2_ITERATIONS = 310000;
+// Cloudflare Workers WebCrypto supports at most 100,000 PBKDF2 iterations.
+const PBKDF2_ITERATIONS = 100000;
 const COOKIE = "fishjoy_session";
 
 function json(data, status = 200, headers = {}) {
