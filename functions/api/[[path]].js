@@ -19,12 +19,15 @@ function randomHex(size = 32) {
 async function sha256(value) {
   return bytesToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
 }
-async function passwordHash(password, salt) {
+async function passwordHash(password, salt, setStage) {
+  setStage("password_import_key");
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  setStage("password_derive_bits_" + PBKDF2_ITERATIONS);
   const bits = await crypto.subtle.deriveBits(
     { name: "PBKDF2", salt: new TextEncoder().encode(salt), iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
     key, 256
   );
+  setStage("password_hash_complete");
   return bytesToHex(bits);
 }
 function cookieValue(request, name) {
@@ -107,7 +110,7 @@ async function handle(request, env) {
     const id = randomHex(16);
     const salt = randomHex(16);
     stage = "password_hash";
-    const hash = await passwordHash(password, salt);
+    const hash = await passwordHash(password, salt, setStage);
     const now = Math.floor(Date.now() / 1000);
     stage = "prepare_guest_save";
     let guestSave = body.guestSave && typeof body.guestSave === "object" ? body.guestSave : {};
@@ -187,10 +190,15 @@ async function handle(request, env) {
       message: error && error.message ? error.message : String(error),
       stack: error && error.stack ? error.stack : ""
     });
+    const diagnostic = {
+      name: error && error.name ? String(error.name) : "Error",
+      message: error && error.message ? String(error.message).slice(0, 240) : String(error).slice(0, 240)
+    };
     return json({
       error: "服务器暂时无法处理请求",
       code: stage,
-      traceId
+      traceId,
+      ...(stage.startsWith("password_") ? { diagnostic } : {})
     }, 500);
   }
 }
