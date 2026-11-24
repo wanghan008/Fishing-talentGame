@@ -77,6 +77,8 @@ function validateCredentials(username, password) {
   return "";
 }
 async function handle(request, env) {
+  let stage = "request";
+  try {
   if (!env.DB) return json({ error: "服务器尚未绑定 D1 数据库" }, 503);
   if (!validOrigin(request)) return json({ error: "请求来源不合法" }, 403);
   const url = new URL(request.url);
@@ -84,11 +86,13 @@ async function handle(request, env) {
   const method = request.method.toUpperCase();
 
   if (path === "/api/register" && method === "POST") {
+    stage = "read_body";
     const body = await readJson(request);
     const username = normalizeUsername(body.username);
     const password = body.password;
     const invalid = validateCredentials(username, password);
     if (invalid) return json({ error: invalid }, 400);
+    stage = "password_hash";
     const id = randomHex(16);
     const salt = randomHex(16);
     const hash = await passwordHash(password, salt);
@@ -97,6 +101,7 @@ async function handle(request, env) {
     const coins = Number.isFinite(Number(guestSave.coins)) ? Math.max(0, Math.min(999999, Math.floor(Number(guestSave.coins)))) : 10000;
     guestSave = { ...guestSave, coins };
     try {
+      stage = "database_insert";
       await env.DB.batch([
         env.DB.prepare("INSERT INTO users (id,username,username_norm,password_salt,password_hash,created_at) VALUES (?,?,?,?,?,?)")
           .bind(id, username, username.toLocaleLowerCase(), salt, hash, now),
@@ -107,6 +112,7 @@ async function handle(request, env) {
       if (String(error).includes("UNIQUE")) return json({ error: "这个游戏昵称已被注册" }, 409);
       throw error;
     }
+    stage = "create_session";
     const token = await createSession(id, env);
     return json({ user: { id, username }, save: guestSave }, 201, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
@@ -161,12 +167,11 @@ async function handle(request, env) {
   }
 
   return json({ error: "接口不存在" }, 404);
+  } catch (error) {
+    console.error("FishJoy API error:", stage, error);
+    return json({ error: "服务器暂时无法处理请求", code: stage }, 500);
+  }
 }
 export async function onRequest(context) {
-  try {
-    return await handle(context.request, context.env);
-  } catch (error) {
-    console.error("FishJoy API error:", error);
-    return json({ error: "服务器暂时无法处理请求" }, 500);
-  }
+  return await handle(context.request, context.env);
 }
