@@ -129,9 +129,9 @@ async function handle(request, env) {
     const now = Math.floor(Date.now() / 1000);
     stage = "prepare_guest_save";
     let guestSave = body.guestSave && typeof body.guestSave === "object" ? body.guestSave : {};
-    // Every newly registered account starts with exactly 5,000 coins.
-    // Preserve the guest's other progress, but do not inherit an unusable/incorrect starting balance.
-    guestSave = { ...guestSave, coins: 5000 };
+    // Every newly registered account starts with exactly 10,000 coins.
+    // Preserve the guest's other progress, but set the starting balance consistently.
+    guestSave = { ...guestSave, coins: 10000 };
     try {
       stage = "database_insert";
       await env.DB.batch([
