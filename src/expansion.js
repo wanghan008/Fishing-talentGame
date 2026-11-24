@@ -6,7 +6,9 @@ var ns = Q.use("fish"), game = ns.game;
 var KEY = "fishjoy_progress_v1";
 var state = {coins:0, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, eventCount:0};
 var overlay, statusNode, noticeNode, tick=0, lastEvent=0, lastBoss=0;
-var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null;\nvar weaponMode = 0, weaponButton = null;\nvar weaponNames = ["标准炮","连发炮","散射炮"];
+var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null;
+var weaponMode = 0, weaponButton = null;
+var weaponNames = ["标准炮","连发炮","散射炮"];
 var fishNames = ["小丑鱼","蓝色小鱼","金色鱼","蝴蝶鱼","狮子鱼","灯笼鱼","海龟","魔鬼鱼","珍珠鱼","深海鱼","黄金鲨鱼","巨齿鲨"];
 function loadState(){
  try { var saved=JSON.parse(localStorage.getItem(KEY)||"{}"); if(saved && typeof saved==="object") {
@@ -53,7 +55,12 @@ function addProgressUI(){
  overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
  refresh();
 }
-function cycleWeapon(){\n weaponMode=(weaponMode+1)%weaponNames.length; if(weaponButton)weaponButton.textContent="武器："+weaponNames[weaponMode];\n game.fireInterval=weaponMode===1?Math.max(7,Math.floor(game.fps*.18)):Math.floor(game.fps*.5);\n notice("已切换："+weaponNames[weaponMode]+(weaponMode===2?"（三发散射，消耗三倍金币）":""));\n}\nfunction upgradeCannon(){
+function cycleWeapon(){
+ weaponMode=(weaponMode+1)%weaponNames.length; if(weaponButton)weaponButton.textContent="武器："+weaponNames[weaponMode];
+ game.fireInterval=weaponMode===1?Math.max(7,Math.floor(game.fps*.18)):Math.floor(game.fps*.5);
+ notice("已切换："+weaponNames[weaponMode]+(weaponMode===2?"（三发散射，消耗三倍金币）":""));
+}
+function upgradeCannon(){
  if(!game.player)return;
  var next=state.cannonLevel+1, cost=next*250;
  if(next>7){notice("炮台已升至最高等级");return;}
@@ -118,7 +125,13 @@ function resizeGame(){
 }
 function init(){
  loadState();addProgressUI();resizeGame();
- if(game.player){\n  game.player.cannon.setPower(state.cannonLevel,false);\n  if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){\n   if(weaponMode!==2){return originalFire.call(this,point);}\n   var spread=game.width*.055;originalFire.call(this,point);\n   if(this.coin>=this.cannon.power*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}\n  };}\n }
+ if(game.player){
+  game.player.cannon.setPower(state.cannonLevel,false);
+  if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
+   if(weaponMode!==2){return originalFire.call(this,point);}
+   var spread=game.width*.055;originalFire.call(this,point);
+   if(this.coin>=this.cannon.power*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
+  };}\n }
  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
   var value=fish.coin;
   if(Date.now()<state.rewardBoostUntil)fish.coin=value*2;
