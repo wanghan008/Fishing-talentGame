@@ -131,7 +131,8 @@ function init(){
    if(weaponMode!==2){return originalFire.call(this,point);}
    var spread=game.width*.055;originalFire.call(this,point);
    if(this.coin>=this.cannon.power*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
-  };}\n }
+  };}
+ }
  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
   var value=fish.coin;
   if(Date.now()<state.rewardBoostUntil)fish.coin=value*2;
