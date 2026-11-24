@@ -14,7 +14,7 @@ function getOrCreatePlayerId(){
   return id;
  } catch(e){return "guest_session";}
 }
-var overlay, statusNode, noticeNode, tick=0, lastEvent=0, lastBoss=0;
+var overlay, statusNode, noticeNode, accountButton, tick=0, lastEvent=0, lastBoss=0;
 var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null, originalUpdateCoin = null;
 var weaponMode = 0, weaponButton = null;
 var weaponNames = ["标准炮","连发炮","散射炮"];
@@ -41,11 +41,112 @@ function loadState(){
   }
  } catch(e){}
 }
+var cloudUser=null, cloudReady=false, cloudSaveTimer=null, accountModal=null, accountMode="login";
+function exportSave(){
+ var copy={};
+ for(var k in state)copy[k]=state[k];
+ if(game.player)copy.coins=game.player.coin;
+ return copy;
+}
+function scheduleCloudSave(){
+ if(!cloudUser||!cloudReady)return;
+ if(cloudSaveTimer)clearTimeout(cloudSaveTimer);
+ cloudSaveTimer=setTimeout(function(){
+  fetch("/api/save",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({save:exportSave()})})
+   .then(function(r){if(!r.ok)throw new Error("云端存档同步失败");return r.json();})
+   .catch(function(){notice("云端同步暂时失败，进度已保存在本机");});
+ },900);
+}
 function saveState(){
  try {
   if(game.player)state.coins=game.player.coin;
   localStorage.setItem(KEY,JSON.stringify(state));
+  scheduleCloudSave();
  } catch(e){}
+}
+function apiRequest(path,body){
+ return fetch(path,{method:body?"POST":"GET",credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+  .then(function(r){return r.json().then(function(data){if(!r.ok)throw new Error(data.error||"请求失败");return data;});});
+}
+function applyCloudSave(saved){
+ if(!saved||typeof saved!=="object")return;
+ state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):state.coins;
+ state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
+ state.catches=saved.catches||{};state.achievements=saved.achievements||{};
+ state.bossWins=Number(saved.bossWins)||0;state.eventCount=Number(saved.eventCount)||0;
+ if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
+ if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
+ saveState();refresh();
+}
+function setAccountLabel(){
+ if(accountButton)accountButton.textContent=cloudUser?"账号："+cloudUser.username:"账号/云存档";
+}
+function closeAccountModal(){
+ if(accountModal&&accountModal.parentNode)accountModal.parentNode.removeChild(accountModal);
+ accountModal=null;
+}
+function showAccountModal(){
+ if(accountModal){closeAccountModal();return;}
+ accountMode="login";
+ accountModal=document.createElement("div");
+ accountModal.style.cssText="position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:18px;pointer-events:auto;font:15px Arial,sans-serif;color:#fff;";
+ var panel=document.createElement("div");
+ panel.style.cssText="width:min(360px,100%);max-height:85vh;overflow:auto;background:#082b3b;border:1px solid #69cce8;border-radius:14px;padding:18px;box-shadow:0 8px 35px #000;";
+ var heading=document.createElement("div");heading.textContent="捕鱼游戏账号";heading.style.cssText="font-size:20px;font-weight:bold;margin-bottom:12px;text-align:center;";
+ var tabs=document.createElement("div");tabs.style.cssText="display:flex;gap:8px;margin-bottom:14px;";
+ var loginTab=makeButton("登录",function(){accountMode="login";render();});
+ var registerTab=makeButton("注册账号",function(){accountMode="register";render();});
+ tabs.appendChild(loginTab);tabs.appendChild(registerTab);
+ var form=document.createElement("form");form.style.cssText="display:flex;flex-direction:column;gap:10px;";
+ var nameLabel=document.createElement("label");nameLabel.textContent="游戏昵称";
+ var nameInput=document.createElement("input");nameInput.autocomplete="username";nameInput.maxLength=20;nameInput.required=true;nameInput.placeholder="3-20位昵称";nameInput.style.cssText="padding:12px;border-radius:8px;border:1px solid #6ba9bd;font-size:16px;width:100%;";
+ var passLabel=document.createElement("label");passLabel.textContent="密码";
+ var passInput=document.createElement("input");passInput.type="password";passInput.autocomplete="current-password";passInput.minLength=8;passInput.maxLength=72;passInput.required=true;passInput.placeholder="至少8位";passInput.style.cssText=nameInput.style.cssText;
+ var hint=document.createElement("div");hint.style.cssText="font-size:12px;color:#b9d9e4;line-height:1.5;";
+ var error=document.createElement("div");error.style.cssText="color:#ffb1a8;font-size:13px;min-height:18px;";
+ var submit=document.createElement("button");submit.type="submit";submit.style.cssText="padding:12px;border:0;border-radius:8px;background:#1598bd;color:white;font-size:16px;font-weight:bold;";
+ var close=makeButton("关闭",closeAccountModal);close.style.marginTop="10px";close.style.width="100%";
+ nameLabel.appendChild(nameInput);passLabel.appendChild(passInput);
+ form.appendChild(nameLabel);form.appendChild(nameInput);form.appendChild(passLabel);form.appendChild(passInput);form.appendChild(hint);form.appendChild(error);form.appendChild(submit);
+ panel.appendChild(heading);panel.appendChild(tabs);panel.appendChild(form);
+ if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){cloudUser=null;cloudReady=false;setAccountLabel();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);}
+ panel.appendChild(close);accountModal.appendChild(panel);document.body.appendChild(accountModal);
+ function render(){
+  loginTab.style.opacity=accountMode==="login"?"1":".55";registerTab.style.opacity=accountMode==="register"?"1":".55";
+  passInput.autocomplete=accountMode==="register"?"new-password":"current-password";
+  submit.textContent=accountMode==="register"?"注册并迁移游客存档":"登录";
+  hint.textContent=accountMode==="register"?"注册成功后，本设备的游客金币、炮台等级、图鉴和成就会自动迁移到账号。昵称不可重复，密码至少8位。":"登录后将读取该账号的云端游戏进度。";
+  error.textContent="";
+ }
+ form.addEventListener("submit",function(e){
+  e.preventDefault();error.textContent="正在处理...";
+  var payload={username:nameInput.value,password:passInput.value};
+  var action=accountMode==="register"?apiRequest("/api/register",{username:payload.username,password:payload.password,guestSave:exportSave()}):apiRequest("/api/login",payload);
+  action.then(function(result){
+   cloudUser=result.user;setAccountLabel();
+   if(accountMode==="register"){
+    cloudReady=true;applyCloudSave(result.save);notice("注册成功！游客存档已迁移到账号");
+   }else{
+    cloudReady=false;
+    return apiRequest("/api/save").then(function(remote){
+     if(remote.save)applyCloudSave(remote.save);
+     else {cloudReady=true;saveState();}
+     cloudReady=true;setAccountLabel();notice("登录成功，云端存档已加载");
+    });
+   }
+   closeAccountModal();
+  }).catch(function(err){error.textContent=err.message;});
+ });
+ render();
+}
+function restoreCloudSession(){
+ apiRequest("/api/me").then(function(result){
+  cloudUser=result.user;setAccountLabel();cloudReady=false;
+  return apiRequest("/api/save");
+ }).then(function(result){
+  if(result.save)applyCloudSave(result.save);
+  cloudReady=true;setAccountLabel();
+ }).catch(function(){cloudUser=null;cloudReady=true;setAccountLabel();});
 }
 function notice(msg){ if(!noticeNode)return; noticeNode.textContent=msg; noticeNode.style.opacity="1"; window.clearTimeout(noticeNode._timer); noticeNode._timer=window.setTimeout(function(){noticeNode.style.opacity="0";},2600); }
 function makeButton(label, action){
@@ -80,6 +181,7 @@ function addProgressUI(){
  controls.appendChild(makeButton("金币技能",activateBoost));
  controls.appendChild(makeButton("BOSS挑战",spawnBoss));
  controls.appendChild(makeButton("图鉴/成就",showDex));
+ accountButton=makeButton("账号/云存档",showAccountModal);controls.appendChild(accountButton);
  bar.appendChild(statusNode);bar.appendChild(controls);
  noticeNode=document.createElement("div");noticeNode.className="notice";
  overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
@@ -165,6 +267,7 @@ function init(){
    state.coins=this.coin;saveState();
   };}
   game.player.cannon.setPower(state.cannonLevel,false);
+  restoreCloudSession();
   if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
    if(weaponMode!==2){return originalFire.call(this,point);}
    var spread=game.width*.055;originalFire.call(this,point);
