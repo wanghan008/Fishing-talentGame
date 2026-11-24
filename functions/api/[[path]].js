@@ -180,6 +180,20 @@ async function handle(request, env) {
     return user ? json({ user }) : json({ user: null }, 401);
   }
 
+  // Temporary session diagnostic: never returns the cookie or its hash.
+  if (path === "/api/debug-session" && method === "GET") {
+    const cookieHeaderValue = request.headers.get("Cookie") || "";
+    const token = cookieValue(request, COOKIE);
+    if (!token) {
+      return json({ cookieHeaderPresent: !!cookieHeaderValue, sessionCookiePresent: false, cookieHeaderLength: cookieHeaderValue.length });
+    }
+    const tokenHash = await sha256(token);
+    const row = await env.DB.prepare(
+      "SELECT u.id, u.username, s.expires_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>? LIMIT 1"
+    ).bind(tokenHash, Math.floor(Date.now() / 1000)).first();
+    return json({ cookieHeaderPresent: !!cookieHeaderValue, sessionCookiePresent: true, tokenLength: token.length, sessionMatched: !!row, user: row ? { id: row.id, username: row.username } : null });
+  }
+
   if (path === "/api/save" && method === "GET") {
     stage = "save_get_check_session";
     const user = await currentUser(request, env);
