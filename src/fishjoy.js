@@ -33,17 +33,10 @@ game.load = function(container)
 	if(params.fps) this.fps = params.fps;
 	this.fireInterval = this.fps*0.5;
 	
-	if(Q.isIpod || Q.isIphone)
-	{
-		this.width = 980;
-		this.height = 545;
-		Q.addMeta({name:"viewport", content:"user-scalable=no"});
-	}else
-	{		
-		Q.addMeta({name:"viewport", content:"user-scalable=no, initial-scale=1.0, minimum-scale=1, maximum-scale=1"});
-		this.width = Math.min(1024, window.innerWidth);
-		this.height = Math.min(768, window.innerHeight);
-	}
+	// 所有设备统一使用实际视口尺寸，避免 iPhone 被强制锁定为 980×545。
+	var viewport = window.visualViewport;
+	this.width = Math.max(320, Math.round(viewport ? viewport.width : window.innerWidth));
+	this.height = Math.max(320, Math.round(viewport ? viewport.height : window.innerHeight));
 
 	if(params.width) this.width = Number(params.width) || this.width;
 	if(params.height) this.height = Number(params.height) || this.height;
@@ -160,6 +153,9 @@ game.startup = function()
 game.initUI = function()
 {
 	this.bg = new Q.Bitmap({id:"bg", image:ns.R.mainbg, transformEnabled:false});
+	// 背景随视口铺满，避免手机屏幕出现未绘制区域。
+	this.bg.scaleX = this.width / this.bg.width;
+	this.bg.scaleY = this.height / this.bg.height;
 	
 	this.fishContainer = new Q.DisplayObjectContainer({id:"fishContainer", width:this.width, height:this.height, eventChildren:false, transformEnabled:false});
 	this.fishContainer.onEvent = function(e)
