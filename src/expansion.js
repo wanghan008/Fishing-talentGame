@@ -117,9 +117,9 @@ function resizeGame(){
  if(game.player){
   var p=game.player, bar=game.bottom;
   p.cannon.x=w*.5;p.cannon.y=h-10;
-  p.cannonMinus.x=bar.x+bar.width*.445;p.cannonMinus.y=bar.y+bar.height*.5;
-  p.cannonPlus.x=p.cannonMinus.x+Math.min(140,w*.28);p.cannonPlus.y=p.cannonMinus.y;
-  p.coinNum.x=bar.x+20;p.coinNum.y=bar.y+bar.height*.61;
+  p.cannonMinus.x=bar.x+bar.width*bar.scaleX*.445;p.cannonMinus.y=bar.y+bar.height*bar.scaleY*.5;
+  p.cannonPlus.x=p.cannonMinus.x+Math.min(140*bar.scaleX,w*.28);p.cannonPlus.y=p.cannonMinus.y;
+  p.coinNum.x=bar.x+20*bar.scaleX;p.coinNum.y=bar.y+bar.height*bar.scaleY*.61;
  }
  if(game.stage.updatePosition)game.stage.updatePosition();
 }
