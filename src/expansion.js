@@ -48,6 +48,20 @@ function exportSave(){
  if(game.player)copy.coins=game.player.coin;
  return copy;
 }
+function exportGuestSave(){
+ try {
+  var guest=JSON.parse(localStorage.getItem(KEY)||"null");
+  if(guest&&typeof guest==="object")return guest;
+ } catch(e){}
+ return exportSave();
+}
+function restoreGuestSave(){
+ cloudUser=null;cloudReady=true;
+ loadState();
+ if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
+ if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
+ saveState();refresh();setAccountLabel();
+}
 function scheduleCloudSave(){
  if(!cloudUser||!cloudReady)return;
  if(cloudSaveTimer)clearTimeout(cloudSaveTimer);
@@ -60,7 +74,7 @@ function scheduleCloudSave(){
 function saveState(){
  try {
   if(game.player)state.coins=game.player.coin;
-  localStorage.setItem(KEY,JSON.stringify(state));
+  localStorage.setItem(cloudUser?("fishjoy_account_cache_"+cloudUser.id):KEY,JSON.stringify(state));
   scheduleCloudSave();
  } catch(e){}
 }
@@ -109,7 +123,7 @@ function showAccountModal(){
  nameLabel.appendChild(nameInput);passLabel.appendChild(passInput);
  form.appendChild(nameLabel);form.appendChild(nameInput);form.appendChild(passLabel);form.appendChild(passInput);form.appendChild(hint);form.appendChild(error);form.appendChild(submit);
  panel.appendChild(heading);panel.appendChild(tabs);panel.appendChild(form);
- if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){cloudUser=null;cloudReady=false;setAccountLabel();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);}
+ if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);}
  panel.appendChild(close);accountModal.appendChild(panel);document.body.appendChild(accountModal);
  function render(){
   loginTab.style.opacity=accountMode==="login"?"1":".55";registerTab.style.opacity=accountMode==="register"?"1":".55";
@@ -120,8 +134,9 @@ function showAccountModal(){
  }
  form.addEventListener("submit",function(e){
   e.preventDefault();error.textContent="正在处理...";
+  if(accountMode==="register"&&cloudUser){error.textContent="请先退出当前账号，再注册新账号";return;}
   var payload={username:nameInput.value,password:passInput.value};
-  var action=accountMode==="register"?apiRequest("/api/register",{username:payload.username,password:payload.password,guestSave:exportSave()}):apiRequest("/api/login",payload);
+  var action=accountMode==="register"?apiRequest("/api/register",{username:payload.username,password:payload.password,guestSave:exportGuestSave()}):apiRequest("/api/login",payload);
   action.then(function(result){
    cloudUser=result.user;setAccountLabel();
    if(accountMode==="register"){
