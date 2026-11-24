@@ -9,7 +9,7 @@ var overlay, statusNode, noticeNode, tick=0, lastEvent=0, lastBoss=0;
 var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null;
 var weaponMode = 0, weaponButton = null;
 var weaponNames = ["标准炮","连发炮","散射炮"];
-var fishNames = ["小丑鱼","蓝色小鱼","金色鱼","蝴蝶鱼","狮子鱼","灯笼鱼","海龟","魔鬼鱼","珍珠鱼","深海鱼","黄金鲨鱼","巨齿鲨"];
+var fishNames = ["小丑鱼","蓝色小鱼","金色鱼","蝴蝶鱼","狮子鱼","灯笼鱼","海龟","魔鬼鱼","珍珠鱼","深海鱼","黄金鲨鱼","巨齿鲨","霓虹鱼","深海金鱼","迅捷鱼"];\nvar originalSetType = ns.Fish.prototype.setType;\nns.Fish.prototype.setType = function(type){this.type=type;return originalSetType.call(this,type);};\nvar variantsAdded=false;\nfunction addFishVariants(){\n if(variantsAdded||!ns.R.fishTypes)return;\n var defs=[{base:4,coin:18,rate:.32,group:5,speed:1.35},{base:8,coin:75,rate:.16,group:2,speed:.72},{base:10,coin:90,rate:.12,group:2,speed:1.05}];\n for(var i=0;i<defs.length;i++){var d=defs[i],base=ns.R.fishTypes[d.base],mix={};for(var k in base.mixin)mix[k]=base.mixin[k];mix.coin=d.coin;mix.captureRate=d.rate;mix.maxNumGroup=d.group;mix.minSpeed=d.speed*.75;mix.maxSpeed=d.speed*1.25;ns.R.fishTypes.push({image:base.image,frames:base.frames,polyArea:base.polyArea,mixin:mix});}\n variantsAdded=true;\n}
 function loadState(){
  try { var saved=JSON.parse(localStorage.getItem(KEY)||"{}"); if(saved && typeof saved==="object") {
   state.coins=Number(saved.coins)||0; state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
@@ -124,7 +124,7 @@ function resizeGame(){
  if(game.stage.updatePosition)game.stage.updatePosition();
 }
 function init(){
- loadState();addProgressUI();resizeGame();
+ loadState();addFishVariants();addProgressUI();resizeGame();
  if(game.player){
   game.player.cannon.setPower(state.cannonLevel,false);
   if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
