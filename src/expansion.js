@@ -91,7 +91,9 @@ function saveState(){
  } catch(e){}
 }
 function apiRequest(path,body){
- return fetch(path,{method:body?"POST":"GET",credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
+ var controller=typeof AbortController!=="undefined"?new AbortController():null;
+ var timeout=window.setTimeout(function(){if(controller)controller.abort();},20000);
+ return fetch(path,{method:body?"POST":"GET",credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined,signal:controller?controller.signal:undefined})
   .then(function(r){return r.json().then(function(data){
    if(!r.ok){
     var detail=data.code?"（定位代码："+data.code+(data.traceId?"；编号："+data.traceId:"")+"）":"";
@@ -103,7 +105,12 @@ function apiRequest(path,body){
     throw new Error((data.error||"请求失败")+detail+diagnostic);
    }
    return data;
-  });});
+  });})
+  .catch(function(err){
+   if(err&&err.name==="AbortError")throw new Error("请求超时（20秒）。请检查网络或 Cloudflare Worker 日志后重试。");
+   throw err;
+  })
+  .finally(function(){window.clearTimeout(timeout);});
 }
 function applyCloudSave(saved){
  if(!saved||typeof saved!=="object")return;
@@ -165,12 +172,20 @@ function showAccountModal(){
    if(accountMode==="register"){
     cloudReady=true;applyCloudSave(result.save);notice("注册成功！游客存档已迁移到账号");
    }else{
+    // Authentication is successful as soon as /api/login returns.
+    // Do not keep the login form stuck on "正在处理..." while cloud save loads.
     cloudReady=false;
-    return apiRequest("/api/save").then(function(remote){
+    closeAccountModal();
+    notice("登录成功，正在读取云存档...");
+    apiRequest("/api/save").then(function(remote){
      if(remote.save)applyCloudSave(remote.save);
      else {cloudReady=true;saveState();}
      cloudReady=true;setAccountLabel();notice("登录成功，云端存档已加载");
+    }).catch(function(err){
+     cloudReady=true;setAccountLabel();
+     notice("登录成功，但云存档读取失败："+err.message);
     });
+    return;
    }
    closeAccountModal();
   }).catch(function(err){error.textContent=err.message;});
