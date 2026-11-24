@@ -83,7 +83,8 @@ function apiRequest(path,body){
   .then(function(r){return r.json().then(function(data){
    if(!r.ok){
     var detail=data.code?"（定位代码："+data.code+(data.traceId?"；编号："+data.traceId:"")+"）":"";
-    throw new Error((data.error||"请求失败")+detail);
+    var diagnostic=data.diagnostic?"\n底层错误："+data.diagnostic.name+"："+data.diagnostic.message:"";
+    throw new Error((data.error||"请求失败")+detail+diagnostic);
    }
    return data;
   });});
