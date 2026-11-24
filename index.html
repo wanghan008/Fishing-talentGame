@@ -8,21 +8,13 @@
 <link rel="apple-touch-startup-image" href="images/icon.png" />
 
 <style type="text/css">
-body, div, canvas
-{
-    image-rendering: optimizeSpeed;
-    -webkit-image-rendering: optimizeSpeed;
-    -webkit-interpolation-mode: nearest-neighbor;
-}
-body{padding:0; margin:0;font-size:12px;background-color:#000;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;}
-html,body{width:100%;height:100%;height:100dvh;overscroll-behavior:none;}
-#outer{width:100vw;height:100%;height:100dvh;overflow:hidden;position:fixed;inset:0;}
-#container{touch-action:none;}
-body, html{height: 100%;}
-#outer{height:100%; overflow:hidden; position:relative; width:100%;}
-#outer[id]{display:table; position:static;}
-#middle{position:absolute; top:50%;} /* for ie only*/
-#middle[id]{display:table-cell; vertical-align:middle; position:static;}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;height:100dvh;margin:0;padding:0;overflow:hidden;background:#000;overscroll-behavior:none;touch-action:none;-webkit-user-select:none;user-select:none}
+body,div,canvas{image-rendering:optimizeSpeed;-webkit-image-rendering:optimizeSpeed;-webkit-interpolation-mode:nearest-neighbor}
+#outer{position:fixed;inset:0;width:100vw;height:100%;height:100dvh;overflow:hidden}
+#middle{position:absolute;inset:0;width:100%;height:100%}
+#container{position:absolute;inset:0;width:100%;height:100%;margin:0;overflow:hidden;touch-action:none}
+#msg{position:absolute;z-index:5}
 </style>
 
 <title>Fish Joy in HTML5</title>
@@ -35,6 +27,7 @@ body, html{height: 100%;}
 <script type="text/javascript" src="src/FishManager.js"></script>
 <script type="text/javascript" src="src/FishGroup.js"></script>
 <script type="text/javascript" src="src/views/Fish.js"></script>
+<script type="text/javascript" src="src/expansion.js"></script>
 <script type="text/javascript" src="src/views/Cannon.js"></script>
 <script type="text/javascript" src="src/views/Bullet.js"></script>
 <script type="text/javascript" src="src/views/Num.js"></script>
@@ -46,7 +39,7 @@ body, html{height: 100%;}
 
 <div id="outer">
 	<div id="middle">
-		<div id="container" style="position:relative;width:100%;height:100%;top:0;margin:0 auto;"></div>
+		<div id="container"></div>
 		<div id="msg"></div>
 	</div>
 </div>
