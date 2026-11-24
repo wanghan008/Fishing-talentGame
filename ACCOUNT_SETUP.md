@@ -9,13 +9,24 @@
 - 会话使用 HttpOnly + Secure + SameSite=Lax Cookie
 - 密码使用 PBKDF2-HMAC-SHA256 派生哈希，不保存明文密码
 
-## Cloudflare Pages 配置
+## Cloudflare Workers 配置
 
-1. 在 Cloudflare Dashboard 创建 D1 数据库，建议名称 `fishjoy-account-db`。
-2. 打开 D1 数据库的 Console，执行 `migrations/0001_accounts.sql` 全部 SQL。
-3. 打开游戏对应的 Cloudflare Pages 项目：Settings → Functions → D1 database bindings。
-4. 添加绑定：Variable name 填 `DB`，Database 选择刚创建的数据库。
-5. 保存设置并重新部署 Pages 项目。Pages Functions 会自动部署 `functions/api/[[path]].js`。
+仓库已配置普通 Workers 入口和 Workers Static Assets：
+
+- `worker.js`：把 `/api/*` 请求转发给现有账号 API，其余请求交给静态资源。
+- `wrangler.jsonc`：声明 Worker 入口、静态资源目录和 `ASSETS` 绑定。
+- `.assetsignore`：避免把后端代码、迁移 SQL 和项目说明作为公开静态资源上传。
+
+操作步骤：
+
+1. 在 Cloudflare Dashboard 打开 Workers & Pages → `fishing-talentgame`。
+2. 等待 GitHub 最新提交自动构建部署成功；如果没有自动触发，在 Deployments 中重新部署最新提交。
+3. 打开 Settings → Bindings → Add，选择 D1 database。
+4. Variable name 必须填写 `DB`。
+5. Database 选择已执行 `migrations/0001_accounts.sql` 的 D1 数据库。
+6. 保存后重新部署 Worker，使绑定在新版本中生效。
+
+注意：D1 数据库必须先执行 `migrations/0001_accounts.sql` 创建 `users`、`player_saves`、`sessions` 三张表。仅绑定数据库不会自动创建表。
 
 ## 验证
 
