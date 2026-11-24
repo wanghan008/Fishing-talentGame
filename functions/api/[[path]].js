@@ -93,7 +93,21 @@ async function handle(request, env) {
   stage = "check_database_binding";
   if (!env.DB) return json({ error: "服务器尚未绑定 D1 数据库", code: stage, traceId }, 503);
   stage = "check_request_origin";
-  if (!validOrigin(request)) return json({ error: "请求来源不合法", code: stage, traceId }, 403);
+  if (!validOrigin(request)) {
+    const receivedOrigin = request.headers.get("Origin") || "";
+    const apiOrigin = new URL(request.url).origin;
+    console.warn("FishJoy origin rejected", { traceId, receivedOrigin, apiOrigin, host: request.headers.get("Host") || "" });
+    return json({
+      error: "请求来源与游戏服务器地址不一致",
+      code: stage,
+      traceId,
+      diagnostic: {
+        receivedOrigin: receivedOrigin || "(Origin header missing)",
+        apiOrigin,
+        host: request.headers.get("Host") || ""
+      }
+    }, 403);
+  }
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "");
   const method = request.method.toUpperCase();
