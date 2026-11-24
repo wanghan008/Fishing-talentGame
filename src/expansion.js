@@ -43,7 +43,8 @@ function addProgressUI(){
  var bar=document.createElement("div");bar.className="bar";
  statusNode=document.createElement("div");statusNode.style.cssText="background:rgba(0,0,0,.48);padding:6px 9px;border-radius:8px;";
  var controls=document.createElement("div");controls.className="controls";
- weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);\n controls.appendChild(makeButton("升级炮台",upgradeCannon));
+ weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);
+ controls.appendChild(makeButton("升级炮台",upgradeCannon));
  controls.appendChild(makeButton("金币技能",activateBoost));
  controls.appendChild(makeButton("BOSS挑战",spawnBoss));
  controls.appendChild(makeButton("图鉴/成就",showDex));
