@@ -176,6 +176,34 @@ async function handle(request, env) {
     return json({ ok: true }, 200, { "set-cookie": cookieHeader("", 0) });
   }
 
+  if (path === "/api/delete-account" && method === "POST") {
+    stage = "delete_account_check_session";
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: "请先登录后再注销账号" }, 401);
+
+    stage = "delete_account_read_password";
+    const body = await readJson(request);
+    if (typeof body.password !== "string" || !body.password) {
+      return json({ error: "请输入当前账号密码" }, 400);
+    }
+
+    stage = "delete_account_verify_password";
+    const credentials = await env.DB.prepare(
+      "SELECT password_salt,password_hash FROM users WHERE id=? LIMIT 1"
+    ).bind(user.id).first();
+    if (!credentials) return json({ error: "账号不存在或已注销" }, 404);
+    const hash = await passwordHash(body.password, credentials.password_salt, setStage);
+    if (hash !== credentials.password_hash) return json({ error: "账号密码错误，未执行注销" }, 401);
+
+    stage = "delete_account_database";
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM player_saves WHERE user_id=?").bind(user.id),
+      env.DB.prepare("DELETE FROM sessions WHERE user_id=?").bind(user.id),
+      env.DB.prepare("DELETE FROM users WHERE id=?").bind(user.id)
+    ]);
+    return json({ ok: true, message: "账号及云端存档已永久删除" }, 200, { "set-cookie": cookieHeader("", 0) });
+  }
+
   if (path === "/api/me" && method === "GET") {
     const user = await currentUser(request, env);
     return user ? json({ user }) : json({ user: null }, 401);
