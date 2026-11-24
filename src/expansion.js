@@ -80,7 +80,13 @@ function saveState(){
 }
 function apiRequest(path,body){
  return fetch(path,{method:body?"POST":"GET",credentials:"same-origin",headers:body?{"Content-Type":"application/json"}:{},body:body?JSON.stringify(body):undefined})
-  .then(function(r){return r.json().then(function(data){if(!r.ok)throw new Error(data.error||"请求失败");return data;});});
+  .then(function(r){return r.json().then(function(data){
+   if(!r.ok){
+    var detail=data.code?"（定位代码："+data.code+(data.traceId?"；编号："+data.traceId:"")+"）":"";
+    throw new Error((data.error||"请求失败")+detail);
+   }
+   return data;
+  });});
 }
 function applyCloudSave(saved){
  if(!saved||typeof saved!=="object")return;
