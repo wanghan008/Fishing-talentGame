@@ -149,18 +149,23 @@ async function handle(request, env) {
   }
 
   if (path === "/api/login" && method === "POST") {
+    stage = "login_read_body";
     const body = await readJson(request);
     const username = normalizeUsername(body.username);
     const password = body.password;
     if (!username || typeof password !== "string") return json({ error: "请输入昵称和密码" }, 400);
+    stage = "login_find_user";
     const user = await env.DB.prepare("SELECT id,username,password_salt,password_hash FROM users WHERE username_norm=? LIMIT 1")
       .bind(username.toLocaleLowerCase()).first();
     if (!user) return json({ error: "昵称或密码错误" }, 401);
-    const hash = await passwordHash(password, user.password_salt);
+    stage = "login_password_hash";
+    const hash = await passwordHash(password, user.password_salt, setStage);
     if (hash !== user.password_hash) return json({ error: "昵称或密码错误" }, 401);
     const now = Math.floor(Date.now() / 1000);
+    stage = "login_update_last_login";
     await env.DB.prepare("UPDATE users SET last_login_at=? WHERE id=?").bind(now, user.id).run();
     const token = await createSession(user.id, env, setStage);
+    stage = "login_build_response";
     return json({ user: { id: user.id, username: user.username } }, 200, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
 
@@ -176,24 +181,31 @@ async function handle(request, env) {
   }
 
   if (path === "/api/save" && method === "GET") {
+    stage = "save_get_check_session";
     const user = await currentUser(request, env);
     if (!user) return json({ error: "请先登录" }, 401);
+    stage = "save_get_read_database";
     const row = await env.DB.prepare("SELECT save_json,updated_at FROM player_saves WHERE user_id=?").bind(user.id).first();
     return json({ save: row ? JSON.parse(row.save_json) : null, updatedAt: row ? row.updated_at : null });
   }
 
   if (path === "/api/save" && method === "PUT") {
+    stage = "save_put_check_session";
     const user = await currentUser(request, env);
     if (!user) return json({ error: "请先登录" }, 401);
+    stage = "save_put_read_body";
     const body = await readJson(request);
-    if (!body.save || typeof body.save !== "object" || Array.isArray(body.save)) return json({ error: "存档格式不正确" }, 400);
+    if (!body.save || typeof body.save !== "object" || Array.isArray(body.save)) return json({ error: "存档格式不正确", code: stage, traceId }, 400);
+    stage = "save_put_validate";
     const save = body.save;
     const coins = Number(save.coins);
-    if (!Number.isFinite(coins) || coins < 0 || coins > 999999) return json({ error: "金币数据不合法" }, 400);
+    if (!Number.isFinite(coins) || coins < 0 || coins > 999999) return json({ error: "金币数据不合法", code: stage, traceId }, 400);
     const now = Math.floor(Date.now() / 1000);
+    stage = "save_put_database_write";
     await env.DB.prepare(
       "INSERT INTO player_saves (user_id,save_json,updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET save_json=excluded.save_json,updated_at=excluded.updated_at"
     ).bind(user.id, JSON.stringify(save), now).run();
+    stage = "save_put_complete";
     return json({ ok: true, updatedAt: now });
   }
 
