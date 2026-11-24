@@ -3,10 +3,19 @@
  */
 (function(){
 var ns = Q.use("fish"), game = ns.game;
-var KEY = "fishjoy_progress_v1";
-var state = {coins:0, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, eventCount:0};
+var PLAYER_ID_KEY = "fishjoy_player_id_v1";
+var playerId = getOrCreatePlayerId();
+var KEY = "fishjoy_progress_v1_" + playerId;
+var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, eventCount:0};
+function getOrCreatePlayerId(){
+ try {
+  var id=localStorage.getItem(PLAYER_ID_KEY);
+  if(!id){id="guest_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,12);localStorage.setItem(PLAYER_ID_KEY,id);}
+  return id;
+ } catch(e){return "guest_session";}
+}
 var overlay, statusNode, noticeNode, tick=0, lastEvent=0, lastBoss=0;
-var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null;
+var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null, originalUpdateCoin = null;
 var weaponMode = 0, weaponButton = null;
 var weaponNames = ["标准炮","连发炮","散射炮"];
 var fishNames = ["小丑鱼","蓝色小鱼","金色鱼","蝴蝶鱼","狮子鱼","灯笼鱼","海龟","魔鬼鱼","珍珠鱼","深海鱼","黄金鲨鱼","巨齿鲨","霓虹鱼","深海金鱼","迅捷鱼"];
@@ -20,12 +29,24 @@ function addFishVariants(){
  variantsAdded=true;
 }
 function loadState(){
- try { var saved=JSON.parse(localStorage.getItem(KEY)||"{}"); if(saved && typeof saved==="object") {
-  state.coins=Number(saved.coins)||0; state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
-  state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.eventCount=Number(saved.eventCount)||0;
- }} catch(e){}
+ try {
+  var raw=localStorage.getItem(KEY);
+  // Migrate the old browser-wide save into this browser's new guest profile once.
+  if(!raw){raw=localStorage.getItem("fishjoy_progress_v1");}
+  var saved=JSON.parse(raw||"{}");
+  if(saved && typeof saved==="object") {
+   state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):null;
+   state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
+   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.eventCount=Number(saved.eventCount)||0;
+  }
+ } catch(e){}
 }
-function saveState(){ try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){} }
+function saveState(){
+ try {
+  if(game.player)state.coins=game.player.coin;
+  localStorage.setItem(KEY,JSON.stringify(state));
+ } catch(e){}
+}
 function notice(msg){ if(!noticeNode)return; noticeNode.textContent=msg; noticeNode.style.opacity="1"; window.clearTimeout(noticeNode._timer); noticeNode._timer=window.setTimeout(function(){noticeNode.style.opacity="0";},2600); }
 function makeButton(label, action){
  var b=document.createElement("button"); b.type="button"; b.textContent=label;
@@ -137,6 +158,12 @@ function resizeGame(){
 function init(){
  loadState();addFishVariants();addProgressUI();resizeGame();
  if(game.player){
+  if(state.coins!==null)game.player.updateCoin(state.coins,false);
+  else {state.coins=game.player.coin;saveState();}
+  if(!originalUpdateCoin){originalUpdateCoin=game.player.updateCoin;game.player.updateCoin=function(coin,increase){
+   originalUpdateCoin.call(this,coin,increase);
+   state.coins=this.coin;saveState();
+  };}
   game.player.cannon.setPower(state.cannonLevel,false);
   if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
    if(weaponMode!==2){return originalFire.call(this,point);}
