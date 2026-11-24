@@ -56,12 +56,16 @@ async function currentUser(request, env) {
   ).bind(tokenHash, now).first();
   return row || null;
 }
-async function createSession(userId, env) {
+async function createSession(userId, env, setStage) {
+  setStage("session_generate_token");
   const token = randomHex(32);
   const now = Math.floor(Date.now() / 1000);
   const expires = now + SESSION_DAYS * 86400;
+  setStage("session_hash_token");
+  const tokenHash = await sha256(token);
+  setStage("session_database_insert");
   await env.DB.prepare("INSERT INTO sessions (token_hash,user_id,created_at,expires_at) VALUES (?,?,?,?)")
-    .bind(await sha256(token), userId, now, expires).run();
+    .bind(tokenHash, userId, now, expires).run();
   return token;
 }
 function normalizeUsername(value) {
@@ -77,10 +81,15 @@ function validateCredentials(username, password) {
   return "";
 }
 async function handle(request, env) {
-  let stage = "request";
+  let stage = "start";
+  let traceId = "unavailable";
+  const setStage = value => { stage = value; };
   try {
-  if (!env.DB) return json({ error: "服务器尚未绑定 D1 数据库" }, 503);
-  if (!validOrigin(request)) return json({ error: "请求来源不合法" }, 403);
+  traceId = crypto.randomUUID();
+  stage = "check_database_binding";
+  if (!env.DB) return json({ error: "服务器尚未绑定 D1 数据库", code: stage, traceId }, 503);
+  stage = "check_request_origin";
+  if (!validOrigin(request)) return json({ error: "请求来源不合法", code: stage, traceId }, 403);
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/$/, "");
   const method = request.method.toUpperCase();
@@ -88,15 +97,19 @@ async function handle(request, env) {
   if (path === "/api/register" && method === "POST") {
     stage = "read_body";
     const body = await readJson(request);
+    stage = "normalize_username";
     const username = normalizeUsername(body.username);
     const password = body.password;
+    stage = "validate_credentials";
     const invalid = validateCredentials(username, password);
-    if (invalid) return json({ error: invalid }, 400);
-    stage = "password_hash";
+    if (invalid) return json({ error: invalid, code: stage, traceId }, 400);
+    stage = "generate_user_credentials";
     const id = randomHex(16);
     const salt = randomHex(16);
+    stage = "password_hash";
     const hash = await passwordHash(password, salt);
     const now = Math.floor(Date.now() / 1000);
+    stage = "prepare_guest_save";
     let guestSave = body.guestSave && typeof body.guestSave === "object" ? body.guestSave : {};
     const coins = Number.isFinite(Number(guestSave.coins)) ? Math.max(0, Math.min(999999, Math.floor(Number(guestSave.coins)))) : 10000;
     guestSave = { ...guestSave, coins };
@@ -112,8 +125,8 @@ async function handle(request, env) {
       if (String(error).includes("UNIQUE")) return json({ error: "这个游戏昵称已被注册" }, 409);
       throw error;
     }
-    stage = "create_session";
-    const token = await createSession(id, env);
+    const token = await createSession(id, env, setStage);
+    stage = "build_register_response";
     return json({ user: { id, username }, save: guestSave }, 201, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
 
@@ -129,7 +142,7 @@ async function handle(request, env) {
     if (hash !== user.password_hash) return json({ error: "昵称或密码错误" }, 401);
     const now = Math.floor(Date.now() / 1000);
     await env.DB.prepare("UPDATE users SET last_login_at=? WHERE id=?").bind(now, user.id).run();
-    const token = await createSession(user.id, env);
+    const token = await createSession(user.id, env, setStage);
     return json({ user: { id: user.id, username: user.username } }, 200, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
 
@@ -168,8 +181,17 @@ async function handle(request, env) {
 
   return json({ error: "接口不存在" }, 404);
   } catch (error) {
-    console.error("FishJoy API error:", stage, error);
-    return json({ error: "服务器暂时无法处理请求", code: stage }, 500);
+    console.error("FishJoy API error", {
+      traceId,
+      stage,
+      message: error && error.message ? error.message : String(error),
+      stack: error && error.stack ? error.stack : ""
+    });
+    return json({
+      error: "服务器暂时无法处理请求",
+      code: stage,
+      traceId
+    }, 500);
   }
 }
 export async function onRequest(context) {
