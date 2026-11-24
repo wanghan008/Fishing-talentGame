@@ -126,8 +126,9 @@ function resizeGame(){
  if(game.bottom){game.bottom.scaleX=Math.min(1,w/765);game.bottom.scaleY=game.bottom.scaleX;game.bottom.x=(w-game.bottom.width*game.bottom.scaleX)>>1;game.bottom.y=h-game.bottom.height*game.bottom.scaleY+2-bottomLift;}
  if(game.player){
   var p=game.player, bar=game.bottom;
-  p.cannon.x=w*.5;p.cannon.y=h-10-bottomLift;
-  p.cannonMinus.x=bar.x+bar.width*bar.scaleX*.445;p.cannonMinus.y=bar.y+bar.height*bar.scaleY*.5;
+  var originalBarY=h-bar.height*bar.scaleY+2;
+  p.cannon.x=w*.5;p.cannon.y=h-10;
+  p.cannonMinus.x=bar.x+bar.width*bar.scaleX*.445;p.cannonMinus.y=originalBarY+bar.height*bar.scaleY*.5;
   p.cannonPlus.x=p.cannonMinus.x+Math.min(140*bar.scaleX,w*.28);p.cannonPlus.y=p.cannonMinus.y;
   p.coinNum.x=bar.x+20*bar.scaleX;p.coinNum.y=bar.y+bar.height*bar.scaleY*.61;
  }
