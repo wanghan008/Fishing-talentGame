@@ -180,6 +180,20 @@ async function handle(request, env) {
     return user ? json({ user }) : json({ user: null }, 401);
   }
 
+  // Temporary browser-cookie diagnostic: uses a separate harmless test cookie.
+  if (path === "/api/debug-cookie" && method === "GET") {
+    return json(
+      { message: "测试 Cookie 已发送，请再打开 /api/debug-cookie-check 检查浏览器是否保存" },
+      200,
+      { "set-cookie": "fishjoy_cookie_test=ok; Path=/; Secure; SameSite=Lax; Max-Age=600" }
+    );
+  }
+
+  if (path === "/api/debug-cookie-check" && method === "GET") {
+    const testCookie = cookieValue(request, "fishjoy_cookie_test");
+    return json({ testCookieReceived: testCookie === "ok", cookieHeaderPresent: !!request.headers.get("Cookie") });
+  }
+
   // Temporary session diagnostic: never returns the cookie or its hash.
   if (path === "/api/debug-session" && method === "GET") {
     const cookieHeaderValue = request.headers.get("Cookie") || "";
