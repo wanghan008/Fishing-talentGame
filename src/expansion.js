@@ -122,7 +122,8 @@ function resizeGame(){
  if(game.context&&game.context.canvas&&game.context.canvas.tagName==="CANVAS"){game.context.canvas.width=w;game.context.canvas.height=h;}
  if(game.bg){game.bg.scaleX=w/game.bg.width;game.bg.scaleY=h/game.bg.height;}
  if(game.fishContainer){game.fishContainer.width=w;game.fishContainer.height=h;}
- var bottomLift=Math.min(36,Math.max(22,Math.round(h*0.045)));\n if(game.bottom){game.bottom.scaleX=Math.min(1,w/765);game.bottom.scaleY=game.bottom.scaleX;game.bottom.x=(w-game.bottom.width*game.bottom.scaleX)>>1;game.bottom.y=h-game.bottom.height*game.bottom.scaleY+2-bottomLift;}
+ var bottomLift=Math.min(36,Math.max(22,Math.round(h*0.045)));
+ if(game.bottom){game.bottom.scaleX=Math.min(1,w/765);game.bottom.scaleY=game.bottom.scaleX;game.bottom.x=(w-game.bottom.width*game.bottom.scaleX)>>1;game.bottom.y=h-game.bottom.height*game.bottom.scaleY+2-bottomLift;}
  if(game.player){
   var p=game.player, bar=game.bottom;
   p.cannon.x=w*.5;p.cannon.y=h-10-bottomLift;
