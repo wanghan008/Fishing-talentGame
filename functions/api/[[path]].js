@@ -162,10 +162,30 @@ async function handle(request, env) {
     stage = "login_password_hash";
     const hash = await passwordHash(password, user.password_salt, setStage);
     if (hash !== user.password_hash) return json({ error: "昵称或密码错误" }, 401);
+    // Older D1 databases may have been created before last_login_at was added
+    // to the account schema. Add the column automatically without requiring
+    // a manual SQL step in the D1 Console.
+    stage = "login_check_last_login_column";
+    const userColumns = await env.DB.prepare("PRAGMA table_info(users)").all();
+    const hasLastLoginColumn = (userColumns.results || []).some(column => column.name === "last_login_at");
+    if (!hasLastLoginColumn) {
+      stage = "login_add_last_login_column";
+      try {
+        await env.DB.prepare("ALTER TABLE users ADD COLUMN last_login_at INTEGER").run();
+      } catch (error) {
+        // Concurrent first logins can both observe the missing column.
+        // Ignore only the expected duplicate-column race.
+        if (!String(error && error.message || error).toLowerCase().includes("duplicate column")) {
+          throw error;
+        }
+      }
+    }
+
+    // Only record a login after the password is verified and a session is created.
+    const token = await createSession(user.id, env, setStage);
     const now = Math.floor(Date.now() / 1000);
     stage = "login_update_last_login";
     await env.DB.prepare("UPDATE users SET last_login_at=? WHERE id=?").bind(now, user.id).run();
-    const token = await createSession(user.id, env, setStage);
     stage = "login_build_response";
     return json({ user: { id: user.id, username: user.username } }, 200, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
