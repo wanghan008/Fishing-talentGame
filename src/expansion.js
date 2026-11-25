@@ -262,7 +262,7 @@ function makeButton(label, action){
 function refresh(){
  if(!statusNode)return;
  var gold=game.player?game.player.coin:0;
- statusNode.textContent="金币 "+gold+"  |  炮台 "+state.cannonLevel+"/7  |  BOSS "+state.bossWins+"胜";
+ statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span>';
 }
 function updateAchievements(){
  var total=0; Object.keys(state.catches).forEach(function(k){total+=state.catches[k]||0;});
@@ -275,17 +275,17 @@ function updateAchievements(){
 function addProgressUI(){
  if(document.getElementById("fishjoy-expansion"))return;
  var style=document.createElement("style");
- style.textContent="#fishjoy-expansion{position:fixed;z-index:9999;left:8px;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;pointer-events:none;font:13px Arial,sans-serif;color:#fff;text-shadow:0 1px 3px #000}#fishjoy-expansion .bar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none}#fishjoy-expansion .controls{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}#fishjoy-expansion .notice{align-self:center;background:rgba(0,0,0,.72);border:1px solid #8bd8ee;border-radius:12px;padding:8px 14px;opacity:0;transition:opacity .2s;pointer-events:none}#fishjoy-expansion button{min-height:34px}";
+ style.textContent="#fishjoy-expansion{position:fixed;z-index:9999;left:8px;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;pointer-events:none;font:13px Arial,sans-serif;color:#fff;text-shadow:0 1px 3px #000}#fishjoy-expansion .bar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none}#fishjoy-expansion .controls{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}#fishjoy-expansion .notice{align-self:center;background:rgba(0,0,0,.72);border:1px solid #8bd8ee;border-radius:12px;padding:8px 14px;opacity:0;transition:opacity .2s;pointer-events:none}#fishjoy-expansion button{min-height:34px}#fishjoy-expansion .stats{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#fishjoy-expansion .stats span{display:inline-block;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none}#fishjoy-expansion .stat-coin{background:linear-gradient(135deg,#ffe78a,#e6a817);color:#241800;border:1px solid #fff0ad}#fishjoy-expansion .stat-coin b{color:#241800}#fishjoy-expansion .stat-cannon{background:rgba(0,145,210,.88);color:#e8f8ff;border:1px solid #65d5ff}#fishjoy-expansion .stat-boss{background:rgba(132,65,190,.9);color:#fff0ff;border:1px solid #d4a2ff}#fishjoy-expansion button.btn-cannon{background:linear-gradient(135deg,#087eb8,#07517f);border-color:#5bcaff;color:#fff}#fishjoy-expansion button.btn-skill{background:linear-gradient(135deg,#168b55,#075c3b);border-color:#62e6a0;color:#effff5}#fishjoy-expansion button.btn-achievement{background:linear-gradient(135deg,#8151b5,#512d83);border-color:#d0a6ff;color:#fff}#fishjoy-expansion button.btn-boss{background:linear-gradient(135deg,#b83e38,#76201e);border-color:#ff9b8f;color:#fff}";
  document.head.appendChild(style);
  overlay=document.createElement("div"); overlay.id="fishjoy-expansion";
  var bar=document.createElement("div");bar.className="bar";
- statusNode=document.createElement("div");statusNode.style.cssText="background:rgba(0,0,0,.48);padding:6px 9px;border-radius:8px;";
+ statusNode=document.createElement("div");statusNode.className="stats";statusNode.style.cssText="padding:2px 0;border-radius:8px;";
  var controls=document.createElement("div");controls.className="controls";
  weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);
- controls.appendChild(makeButton("升级炮台",upgradeCannon));
- controls.appendChild(makeButton("金币技能",activateBoost));
- controls.appendChild(makeButton("BOSS挑战",spawnBoss));
- controls.appendChild(makeButton("图鉴/成就",showDex));
+ var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";controls.appendChild(cannonButton);
+ var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
+ var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
+ var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
  accountButton=makeButton("账号/云存档",showAccountModal);controls.appendChild(accountButton);
  bar.appendChild(statusNode);bar.appendChild(controls);
  noticeNode=document.createElement("div");noticeNode.className="notice";
