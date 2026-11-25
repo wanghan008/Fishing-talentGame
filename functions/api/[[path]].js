@@ -257,6 +257,38 @@ async function handle(request, env) {
     return json({ cookieHeaderPresent: !!cookieHeaderValue, sessionCookiePresent: true, tokenLength: token.length, sessionMatched: !!row, user: row ? { id: row.id, username: row.username } : null });
   }
 
+  // Presence records are created lazily so existing production D1 databases
+  // work without a manual migration step.
+  async function ensurePresenceTable() {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS player_presence (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, last_seen_at INTEGER NOT NULL)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_player_presence_last_seen ON player_presence(last_seen_at)").run();
+  }
+
+  if (path === "/api/heartbeat" && method === "POST") {
+    const user = await currentUser(request, env);
+    if (!user) return json({ error: "请先登录" }, 401);
+    await ensurePresenceTable();
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.prepare("INSERT INTO player_presence (user_id,last_seen_at) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET last_seen_at=excluded.last_seen_at")
+      .bind(user.id, now).run();
+    const row = await env.DB.prepare("SELECT COUNT(*) AS onlineCount FROM player_presence WHERE last_seen_at>?").bind(now - 45).first();
+    return json({ ok: true, onlineCount: Number(row && row.onlineCount || 0) });
+  }
+
+  if (path === "/api/online-count" && method === "GET") {
+    await ensurePresenceTable();
+    const now = Math.floor(Date.now() / 1000);
+    const row = await env.DB.prepare("SELECT COUNT(*) AS onlineCount FROM player_presence WHERE last_seen_at>?").bind(now - 45).first();
+    return json({ onlineCount: Number(row && row.onlineCount || 0) });
+  }
+
+  if (path === "/api/leaderboard" && method === "GET") {
+    const rows = await env.DB.prepare(
+      "SELECT u.username, COALESCE(CAST(json_extract(p.save_json,'$.coins') AS REAL),0) AS coins FROM users u LEFT JOIN player_saves p ON p.user_id=u.id ORDER BY coins DESC, u.created_at ASC LIMIT 10"
+    ).all();
+    return json({ entries: (rows.results || []).map(row => ({ username: row.username, coins: Math.max(0, Math.floor(Number(row.coins) || 0)) })) });
+  }
+
   if (path === "/api/save" && method === "GET") {
     stage = "save_get_check_session";
     const user = await currentUser(request, env);
