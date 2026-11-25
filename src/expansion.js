@@ -357,8 +357,8 @@ function addProgressUI(){
  var controls=document.createElement("div");controls.className="controls";
  weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);
  var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";controls.appendChild(cannonButton);
- var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";controls.appendChild(leaderboardButton);
  accountButton=makeButton("账号/云存档",showAccountModal);controls.appendChild(accountButton);controls.appendChild(onlineNode);
+ var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";controls.appendChild(leaderboardButton);
  var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
  var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
  var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
