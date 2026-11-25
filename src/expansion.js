@@ -189,6 +189,28 @@ function closeAccountModal(){
  if(accountModal&&accountModal.parentNode)accountModal.parentNode.removeChild(accountModal);
  accountModal=null;
 }
+function showMyLoginHistory(){
+ var modal=document.createElement("div");
+ modal.style.cssText="position:fixed;inset:0;z-index:10003;background:rgba(0,0,0,.86);display:flex;align-items:center;justify-content:center;padding:14px;pointer-events:auto;font:14px Arial,sans-serif;color:#fff;";
+ var panel=document.createElement("div");
+ panel.style.cssText="width:min(520px,100%);max-height:82vh;overflow:auto;background:#082b3b;border:1px solid #69cce8;border-radius:14px;padding:16px;box-shadow:0 8px 35px #000;";
+ var heading=document.createElement("div");heading.textContent="我的登录记录";heading.style.cssText="font-size:20px;font-weight:bold;text-align:center;margin-bottom:8px;color:#9be6ff;";
+ var hint=document.createElement("div");hint.textContent="仅显示当前账号最近50次成功登录记录；从此功能上线后开始记录，之前的登录不会补录。位置由 IP 推断，可能受 VPN 或代理影响。";hint.style.cssText="font-size:12px;line-height:1.6;color:#b9d9e4;margin-bottom:12px;";
+ var status=document.createElement("div");status.textContent="正在读取登录记录…";status.style.cssText="text-align:center;padding:12px;color:#b9d9e4;";
+ var list=document.createElement("div");list.style.cssText="display:flex;flex-direction:column;gap:8px;";
+ var close=makeButton("关闭",function(){if(modal.parentNode)modal.parentNode.removeChild(modal);});close.style.cssText+="width:100%;margin-top:12px;";
+ panel.appendChild(heading);panel.appendChild(hint);panel.appendChild(status);panel.appendChild(list);panel.appendChild(close);modal.appendChild(panel);document.body.appendChild(modal);
+ apiRequest("/api/my-login-history").then(function(data){
+  status.textContent=data.logins&&data.logins.length?"共 "+data.logins.length+" 条记录（按时间倒序）":"暂无登录记录";
+  (data.logins||[]).forEach(function(item,index){
+   var row=document.createElement("div");row.style.cssText="padding:10px;border:1px solid #31586b;border-radius:9px;background:rgba(255,255,255,.045);";
+   var time=document.createElement("div");time.textContent=new Date(Number(item.logged_at)*1000).toLocaleString();time.style.cssText="font-weight:bold;color:#fff;margin-bottom:5px;";
+   var place=document.createElement("div");place.textContent=[item.country,item.region,item.city].filter(Boolean).join(" · ")||"未获取到地理位置";place.style.cssText="color:#9be6bd;margin-bottom:4px;";
+   var ip=document.createElement("div");ip.textContent="IP："+(item.ip||"未获取到");ip.style.cssText="font-size:12px;color:#b9d9e4;";
+   row.appendChild(time);row.appendChild(place);row.appendChild(ip);list.appendChild(row);
+  });
+ }).catch(function(err){status.textContent="读取失败："+err.message;});
+}
 function showAccountModal(){
  if(accountModal){closeAccountModal();return;}
  accountMode="login";
@@ -213,7 +235,7 @@ function showAccountModal(){
  nameLabel.appendChild(nameInput);passLabel.appendChild(passInput);
  form.appendChild(nameLabel);form.appendChild(nameInput);form.appendChild(passLabel);form.appendChild(passInput);form.appendChild(hint);form.appendChild(error);form.appendChild(submit);
  panel.appendChild(heading);panel.appendChild(tabs);panel.appendChild(form);
- if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);
+ if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var historyButton=makeButton("查看我的登录记录",showMyLoginHistory);historyButton.style.cssText+="width:100%;margin:4px 0 8px;background:linear-gradient(135deg,#087da4,#07517f);";panel.appendChild(historyButton);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);
   var deleteButton=makeButton("注销账号",function(){deletePanel.style.display=deletePanel.style.display==="none"?"block":"none";});
   deleteButton.style.cssText+="width:100%;margin-top:8px;border-color:#ff8d82;color:#ffd0ca;";
   panel.appendChild(deleteButton);
