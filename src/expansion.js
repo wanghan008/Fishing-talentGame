@@ -6,7 +6,7 @@ var ns = Q.use("fish"), game = ns.game;
 var PLAYER_ID_KEY = "fishjoy_player_id_v1";
 var playerId = getOrCreatePlayerId();
 var KEY = "fishjoy_progress_v1_" + playerId;
-var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, challengeBossHp:0, eventCount:0};
+var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, challengeBossHp:0, eventCount:0, chainKills:0, chainReady:false, screenClearCharges:0};
 function getOrCreatePlayerId(){
  try {
   var id=localStorage.getItem(PLAYER_ID_KEY);
@@ -15,7 +15,8 @@ function getOrCreatePlayerId(){
  } catch(e){return "guest_session";}
 }
 var overlay, statusNode, noticeNode, accountButton, onlineNode, leaderboardModal=null, tick=0, lastEvent=0, lastBoss=0, onlinePollTimer=null;
-var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null, originalUpdateCoin = null;
+var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null, originalUpdateCoin = null, originalBulletCheckCollision = null;
+var clearSkillButton = null;
 var weaponMode = 0, weaponButton = null;
 var weaponNames = ["标准炮","连发炮","散射炮"];
 var fishNames = ["小丑鱼","蓝色小鱼","金色鱼","蝴蝶鱼","狮子鱼","灯笼鱼","海龟","魔鬼鱼","珍珠鱼","深海鱼","黄金鲨鱼","巨齿鲨","霓虹鱼","深海金鱼","迅捷鱼"];
@@ -37,7 +38,7 @@ function loadState(){
   if(saved && typeof saved==="object") {
    state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):null;
    state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
-   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0;
+   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0; state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0)); state.chainReady=!!saved.chainReady; state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
   }
  } catch(e){}
 }
@@ -136,7 +137,7 @@ function applyCloudSave(saved){
  state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):state.coins;
  state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
  state.catches=saved.catches||{};state.achievements=saved.achievements||{};
- state.bossWins=Number(saved.bossWins)||0;state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0));state.eventCount=Number(saved.eventCount)||0;
+ state.bossWins=Number(saved.bossWins)||0;state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0));state.eventCount=Number(saved.eventCount)||0;state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0));state.chainReady=!!saved.chainReady;state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
  if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
  if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
  saveState();refresh();
@@ -302,7 +303,8 @@ function makeButton(label, action){
 function refresh(){
  if(!statusNode)return;
  var gold=game.player?game.player.coin:0;
- statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span>';
+ statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span><span class="stat-chain">连锁 <b>'+(state.chainReady?"已就绪":state.chainKills+"/15")+'</b></span>';
+ if(clearSkillButton){clearSkillButton.textContent="全屏清理 ×"+state.screenClearCharges;clearSkillButton.disabled=state.screenClearCharges<=0;clearSkillButton.style.opacity=state.screenClearCharges>0?"1":".55";}
  if(onlineNode){if(!onlineNode.textContent)onlineNode.textContent="在线人数 --";statusNode.appendChild(onlineNode);}
 }
 function updateAchievements(){
@@ -316,7 +318,7 @@ function updateAchievements(){
 function addProgressUI(){
  if(document.getElementById("fishjoy-expansion"))return;
  var style=document.createElement("style");
- style.textContent="#fishjoy-expansion{position:fixed;z-index:9999;left:8px;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;pointer-events:none;font:13px Arial,sans-serif;color:#fff;text-shadow:0 1px 3px #000}#fishjoy-expansion .bar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none}#fishjoy-expansion .controls{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}#fishjoy-expansion .notice{align-self:center;background:rgba(0,0,0,.72);border:1px solid #8bd8ee;border-radius:12px;padding:8px 14px;opacity:0;transition:opacity .2s;pointer-events:none}#fishjoy-expansion button{min-height:34px}#fishjoy-expansion .stats{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#fishjoy-expansion .stats span{display:inline-block;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none}#fishjoy-expansion .stat-coin{background:linear-gradient(135deg,#ffe78a,#e6a817);color:#241800;border:1px solid #fff0ad}#fishjoy-expansion .stat-coin b{color:#241800}#fishjoy-expansion .stat-cannon{background:rgba(0,145,210,.88);color:#e8f8ff;border:1px solid #65d5ff}#fishjoy-expansion .stat-boss{background:rgba(132,65,190,.9);color:#fff0ff;border:1px solid #d4a2ff}#fishjoy-expansion button.btn-cannon{background:linear-gradient(135deg,#087eb8,#07517f);border-color:#5bcaff;color:#fff}#fishjoy-expansion button.btn-skill{background:linear-gradient(135deg,#168b55,#075c3b);border-color:#62e6a0;color:#effff5}#fishjoy-expansion button.btn-achievement{background:linear-gradient(135deg,#8151b5,#512d83);border-color:#d0a6ff;color:#fff}#fishjoy-expansion button.btn-boss{background:linear-gradient(135deg,#b83e38,#76201e);border-color:#ff9b8f;color:#fff}";
+ style.textContent="#fishjoy-expansion{position:fixed;z-index:9999;left:8px;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;pointer-events:none;font:13px Arial,sans-serif;color:#fff;text-shadow:0 1px 3px #000}#fishjoy-expansion .bar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none}#fishjoy-expansion .controls{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}#fishjoy-expansion .notice{align-self:center;background:rgba(0,0,0,.72);border:1px solid #8bd8ee;border-radius:12px;padding:8px 14px;opacity:0;transition:opacity .2s;pointer-events:none}#fishjoy-expansion button{min-height:34px}#fishjoy-expansion .stats{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#fishjoy-expansion .stats span{display:inline-block;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none}#fishjoy-expansion .stat-coin{background:linear-gradient(135deg,#ffe78a,#e6a817);color:#241800;border:1px solid #fff0ad}#fishjoy-expansion .stat-coin b{color:#241800}#fishjoy-expansion .stat-cannon{background:rgba(0,145,210,.88);color:#e8f8ff;border:1px solid #65d5ff}#fishjoy-expansion .stat-boss{background:rgba(132,65,190,.9);color:#fff0ff;border:1px solid #d4a2ff}#fishjoy-expansion .stat-chain{background:rgba(180,75,20,.92);color:#fff4e8;border:1px solid #ffc078}#fishjoy-expansion button.btn-cannon{background:linear-gradient(135deg,#087eb8,#07517f);border-color:#5bcaff;color:#fff}#fishjoy-expansion button.btn-skill{background:linear-gradient(135deg,#168b55,#075c3b);border-color:#62e6a0;color:#effff5}#fishjoy-expansion button.btn-achievement{background:linear-gradient(135deg,#8151b5,#512d83);border-color:#d0a6ff;color:#fff}#fishjoy-expansion button.btn-boss{background:linear-gradient(135deg,#b83e38,#76201e);border-color:#ff9b8f;color:#fff}";
  document.head.appendChild(style);
  overlay=document.createElement("div"); overlay.id="fishjoy-expansion";
  var bar=document.createElement("div");bar.className="bar";
@@ -333,8 +335,16 @@ function addProgressUI(){
  bar.appendChild(statusNode);bar.appendChild(controls);
  noticeNode=document.createElement("div");noticeNode.className="notice";
  overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
+ clearSkillButton=makeButton("全屏清理 ×0",activateScreenClear);clearSkillButton.id="fishjoy-screen-clear";clearSkillButton.style.cssText+="position:fixed;z-index:10001;left:calc(50% + 58px);bottom:calc(22px + env(safe-area-inset-bottom));min-height:42px;padding:8px 12px;background:linear-gradient(135deg,#a52bca,#5a218e);border:2px solid #e4a7ff;border-radius:12px;color:#fff;font-size:14px;box-shadow:0 0 12px rgba(190,90,255,.55);";document.body.appendChild(clearSkillButton);
  refresh();updateOnlineCount();
  if(!onlinePollTimer)onlinePollTimer=window.setInterval(sendHeartbeat,15000);
+}
+function activateScreenClear(){
+ if(state.screenClearCharges<=0){notice("全屏清理技能次数不足");return;}
+ if(!game.fishManager||!game.fishManager.fishes)return;
+ state.screenClearCharges--;var cleared=0,fishes=game.fishManager.fishes.slice();
+ for(var i=0;i<fishes.length;i++){var fish=fishes[i];if(!fish||fish.captured||fish.boss)continue;fish.moving=false;fish.captured=true;fish.capturingCounter=game.fps>>1;fish.gotoAndPlay("capture");cleared++;}
+ saveState();refresh();notice("全屏清理发动！清除了 "+cleared+" 条鱼");
 }
 function cycleWeapon(){
  weaponMode=(weaponMode+1)%weaponNames.length; if(weaponButton)weaponButton.textContent="武器："+weaponNames[weaponMode];
@@ -406,6 +416,17 @@ function resizeGame(){
  }
  if(game.stage.updatePosition)game.stage.updatePosition();
 }
+function triggerChainBlast(x,y,power){
+ if(!game.fishManager||!game.fishManager.fishes)return;
+ var radius=Math.max(135,Math.min(220,game.width*.22)),r2=radius*radius,hit=0,fishes=game.fishManager.fishes.slice();
+ for(var i=0;i<fishes.length;i++){
+  var fish=fishes[i];if(!fish||fish.captured||fish.boss)continue;
+  var dx=fish.x-x,dy=fish.y-y;if(dx*dx+dy*dy>r2)continue;
+  if(fish.canBeCaptured(power-1)){fish.moving=false;fish.captured=true;fish.capturingCounter=game.fps>>1;fish.gotoAndPlay("capture");hit++;}
+ }
+ try{var effect=new Q.Bitmap(ns.R.webs[Math.max(0,Math.min(6,power-1))]);effect.x=x;effect.y=y;effect.scaleX=effect.scaleY=.85;effect.alpha=.85;game.stage.addChild(effect);Q.Tween.to(effect,{scaleX:2.2,scaleY:2.2,alpha:0},{time:360,onComplete:function(){if(effect.parent)effect.parent.removeChild(effect);}});}catch(e){}
+ notice("连锁爆炸！范围命中 "+hit+" 条鱼");
+}
 function init(){
  loadState();addFishVariants();addProgressUI();resizeGame();
  if(game.player){
@@ -423,13 +444,17 @@ function init(){
    if(this.coin>=(this.cannon.power===7?10:Math.ceil(this.cannon.power*1.25))*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
   };}
  }
+ if(!originalBulletCheckCollision&&ns.Bullet&&ns.Bullet.prototype){originalBulletCheckCollision=ns.Bullet.prototype.checkCollision;ns.Bullet.prototype.checkCollision=function(){var x=this.x,y=this.y,power=this.power,hit=originalBulletCheckCollision.apply(this,arguments);if(hit&&state.chainReady){state.chainReady=false;saveState();triggerChainBlast(x,y,power);refresh();}return hit;};}
  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
   var value=fish.coin;
   if(Date.now()<state.rewardBoostUntil)fish.coin=value*2;
   originalCapture.call(this,fish);
   fish.coin=value;
   var index=ns.R.fishTypes.indexOf(fish.type);if(index<1)index=1;
-  state.catches[index]=(state.catches[index]||0)+1;updateAchievements();refresh();
+  state.catches[index]=(state.catches[index]||0)+1;
+  state.chainKills++;if(state.chainKills>=15){state.chainKills=0;state.chainReady=true;notice("连锁效果已充能！下一次命中将引发范围爆炸");}
+  if(state.screenClearCharges<3&&Math.random()<0.08){state.screenClearCharges++;notice("获得全屏清理技能！当前 "+state.screenClearCharges+"/3 次");}
+  updateAchievements();saveState();refresh();
  };}
 }
 originalUpdate=game.update;
