@@ -324,30 +324,27 @@ function registerMovableButton(node,key){node.dataset.layoutKey=key;node.style.p
 function addProgressUI(){
  if(document.getElementById("fishjoy-expansion"))return;
  var style=document.createElement("style");
- style.textContent="#fishjoy-expansion{position:fixed;z-index:9999;left:8px;right:8px;top:8px;display:flex;flex-direction:column;gap:6px;pointer-events:none;font:13px Arial,sans-serif;color:#fff;text-shadow:0 1px 3px #000}#fishjoy-expansion .bar{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;pointer-events:none}#fishjoy-expansion .controls{display:flex;gap:6px;flex-wrap:wrap;pointer-events:auto}#fishjoy-expansion .notice{align-self:center;background:rgba(0,0,0,.72);border:1px solid #8bd8ee;border-radius:12px;padding:8px 14px;opacity:0;transition:opacity .2s;pointer-events:none}#fishjoy-expansion button{min-height:34px}#fishjoy-expansion .stats{display:flex;align-items:center;gap:6px;flex-wrap:wrap}#fishjoy-expansion .stats span{display:inline-block;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none}#fishjoy-expansion .stat-coin{background:linear-gradient(135deg,#ffe78a,#e6a817);color:#241800;border:1px solid #fff0ad}#fishjoy-expansion .stat-coin b{color:#241800}#fishjoy-expansion .stat-cannon{background:rgba(0,145,210,.88);color:#e8f8ff;border:1px solid #65d5ff}#fishjoy-expansion .stat-boss{background:rgba(132,65,190,.9);color:#fff0ff;border:1px solid #d4a2ff}#fishjoy-expansion .stat-chain{background:rgba(180,75,20,.92);color:#fff4e8;border:1px solid #ffc078}#fishjoy-expansion button.btn-cannon{background:linear-gradient(135deg,#087eb8,#07517f);border-color:#5bcaff;color:#fff}#fishjoy-expansion button.btn-skill{background:linear-gradient(135deg,#168b55,#075c3b);border-color:#62e6a0;color:#effff5}#fishjoy-expansion button.btn-achievement{background:linear-gradient(135deg,#8151b5,#512d83);border-color:#d0a6ff;color:#fff}#fishjoy-expansion button.btn-boss{background:linear-gradient(135deg,#b83e38,#76201e);border-color:#ff9b8f;color:#fff}";
+ style.textContent="#fishjoy-expansion{position:fixed;z-index:9999;left:6px;right:6px;top:6px;display:flex;flex-direction:column;gap:5px;pointer-events:none;font:13px Arial,sans-serif;color:#fff;text-shadow:0 1px 3px #000}#fishjoy-expansion .bar{display:flex;flex-direction:column;align-items:stretch;gap:5px;pointer-events:none}#fishjoy-expansion .controls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(3, minmax(34px,auto));gap:5px;pointer-events:auto;width:100%}#fishjoy-expansion .controls button{width:100%;min-width:0;min-height:36px;padding:6px 2px;font-size:clamp(10px,2.8vw,13px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box}#fishjoy-expansion .notice{align-self:center;background:rgba(0,0,0,.72);border:1px solid #8bd8ee;border-radius:12px;padding:8px 14px;opacity:0;transition:opacity .2s;pointer-events:none}#fishjoy-expansion .stats{display:flex;align-items:center;gap:5px;flex-wrap:wrap;pointer-events:none}#fishjoy-expansion .stats span{display:inline-block;padding:4px 7px;border-radius:7px;font-weight:bold;text-shadow:none;font-size:12px}#fishjoy-expansion .stat-coin{background:linear-gradient(135deg,#ffe78a,#e6a817);color:#241800;border:1px solid #fff0ad}#fishjoy-expansion .stat-coin b{color:#241800}#fishjoy-expansion .stat-cannon{background:rgba(0,145,210,.88);color:#e8f8ff;border:1px solid #65d5ff}#fishjoy-expansion .stat-boss{background:rgba(132,65,190,.9);color:#fff0ff;border:1px solid #d4a2ff}#fishjoy-expansion .stat-chain{background:rgba(180,75,20,.92);color:#fff4e8;border:1px solid #ffc078}#fishjoy-expansion .stat-online{background:rgba(12,105,70,.92);color:#eafff3;border:1px solid #65d99b}#fishjoy-expansion button.btn-cannon{background:linear-gradient(135deg,#087eb8,#07517f);border-color:#5bcaff;color:#fff}#fishjoy-expansion button.btn-skill{background:linear-gradient(135deg,#168b55,#075c3b);border-color:#62e6a0;color:#effff5}#fishjoy-expansion button.btn-achievement{background:linear-gradient(135deg,#8151b5,#512d83);border-color:#d0a6ff;color:#fff}#fishjoy-expansion button.btn-boss{background:linear-gradient(135deg,#b83e38,#76201e);border-color:#ff9b8f;color:#fff}";
  document.head.appendChild(style);
- overlay=document.createElement("div"); overlay.id="fishjoy-expansion";
+ overlay=document.createElement("div");overlay.id="fishjoy-expansion";
  var bar=document.createElement("div");bar.className="bar";
  statusNode=document.createElement("div");statusNode.className="stats";statusNode.style.cssText="padding:2px 0;border-radius:8px;";
- onlineNode=document.createElement("span");onlineNode.className="stat-online";onlineNode.textContent="在线人数 --";onlineNode.style.cssText="background:rgba(12,105,70,.92);color:#eafff3;border:1px solid #65d99b;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none;";statusNode.appendChild(onlineNode);
+ onlineNode=document.createElement("span");onlineNode.className="stat-online";onlineNode.textContent="在线人数 --";statusNode.appendChild(onlineNode);
  var controls=document.createElement("div");controls.className="controls";
-  var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
-  var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
-  var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
-  layoutEditButton=makeButton("编辑布局",function(){setLayoutEditing(!layoutEditing);});layoutEditButton.style.cssText+="background:linear-gradient(135deg,#465b70,#26394b);border-color:#b8d5e8;color:#fff;";controls.appendChild(layoutEditButton);
-  bar.appendChild(statusNode);bar.appendChild(controls);
-  noticeNode=document.createElement("div");noticeNode.className="notice";
-  overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
-  weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);
-  var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";
-  var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";
-  accountButton=makeButton("账号/云存档",showAccountModal);
-  registerMovableButton(weaponButton,"weapon");registerMovableButton(cannonButton,"cannon");
-  registerMovableButton(leaderboardButton,"leaderboard");registerMovableButton(accountButton,"account");
-  document.body.appendChild(weaponButton);document.body.appendChild(cannonButton);document.body.appendChild(leaderboardButton);document.body.appendChild(accountButton);
-  placeMovableButtons();
-  clearSkillButton=makeButton("全屏清理 ×0",activateScreenClear);clearSkillButton.id="fishjoy-screen-clear";clearSkillButton.style.cssText+="position:fixed;z-index:10001;left:calc(50% + 58px);bottom:calc(22px + env(safe-area-inset-bottom));min-height:42px;padding:8px 12px;background:linear-gradient(135deg,#a52bca,#5a218e);border:2px solid #e4a7ff;border-radius:12px;color:#fff;font-size:14px;box-shadow:0 0 12px rgba(190,90,255,.55);";document.body.appendChild(clearSkillButton);
-  refresh();updateOnlineCount();
+ weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);
+ var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";controls.appendChild(cannonButton);
+ var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";controls.appendChild(leaderboardButton);
+ accountButton=makeButton("账号/云存档",showAccountModal);controls.appendChild(accountButton);
+ var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
+ var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
+ var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
+ clearSkillButton=makeButton("全屏清理 ×0",activateScreenClear);clearSkillButton.id="fishjoy-screen-clear";clearSkillButton.style.cssText+="background:linear-gradient(135deg,#a52bca,#5a218e);border:2px solid #e4a7ff;color:#fff;box-shadow:0 0 8px rgba(190,90,255,.45);";
+ controls.appendChild(clearSkillButton);
+ layoutEditButton=makeButton("编辑布局",function(){notice("当前为三行四列固定布局");});layoutEditButton.style.cssText+="background:linear-gradient(135deg,#465b70,#26394b);border-color:#b8d5e8;color:#fff;";controls.appendChild(layoutEditButton);
+ bar.appendChild(statusNode);bar.appendChild(controls);
+ noticeNode=document.createElement("div");noticeNode.className="notice";
+ overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
+ refresh();updateOnlineCount();
  if(!onlinePollTimer)onlinePollTimer=window.setInterval(sendHeartbeat,15000);
 }
 function activateScreenClear(){
