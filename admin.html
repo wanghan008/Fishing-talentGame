@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>捕鱼游戏 - 玩家登录位置管理</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:18px;background:#071b2a;color:#eaf6ff;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1050px;margin:auto}.panel{background:#102d40;border:1px solid #286078;border-radius:13px;padding:16px;margin:14px 0}
+h1{font-size:21px;margin:4px 0 14px}h2{font-size:17px;margin:0 0 12px;color:#8ee2ff}
+input,button{font:inherit;border-radius:8px;padding:10px;border:1px solid #47758b}
+input{background:#071b2a;color:white;width:min(100%,440px)}button{background:#087da4;color:white;cursor:pointer}
+button.secondary{background:#24475c}button.id{background:transparent;border:0;color:#7cddff;padding:3px;text-align:left;word-break:break-all}
+.muted{color:#a9c5d4;font-size:12px;line-height:1.6}.status{margin:10px 0;color:#ffd77a}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap}.toolbar input{flex:1;min-width:220px}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:680px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #2b4b5c;vertical-align:top}th{color:#9bdcf2;font-weight:600}
+#detail{display:none}.loc{font-size:15px;color:#9be6bd}.empty{padding:18px;text-align:center;color:#a9c5d4}
+@media(max-width:600px){body{padding:10px}.panel{padding:12px}h1{font-size:19px}}
+</style>
+</head>
+<body><main>
+<h1>捕鱼游戏 · 玩家登录位置管理</h1>
+<section class="panel">
+<h2>管理员验证</h2>
+<div class="toolbar"><input id="token" type="password" autocomplete="off" placeholder="输入 Cloudflare ADMIN_TOKEN"><button id="connect">验证并读取玩家</button></div>
+<div class="muted">管理令牌仅保存在当前浏览器标签页的会话中。请勿把令牌分享给玩家。</div>
+<div id="status" class="status">尚未连接</div>
+</section>
+<section class="panel">
+<h2>玩家账号列表</h2>
+<div class="muted">点击账号 ID 查看该玩家从功能上线后开始产生的登录记录。</div>
+<div class="tablewrap"><table><thead><tr><th>账号 ID（点击查看）</th><th>昵称</th><th>最近登录位置</th><th>最近登录时间</th></tr></thead><tbody id="players"><tr><td colspan="4" class="empty">请先完成管理员验证</td></tr></tbody></table></div>
+</section>
+<section class="panel" id="detail">
+<div class="toolbar" style="justify-content:space-between;align-items:center"><h2 id="detailTitle">玩家登录记录</h2><button class="secondary" id="close">关闭详情</button></div>
+<div class="muted" id="detailId"></div>
+<div class="tablewrap"><table><thead><tr><th>登录时间</th><th>国家 / 地区 / 城市</th><th>IP 地址</th><th>Cloudflare 节点</th></tr></thead><tbody id="logins"></tbody></table></div>
+</section>
+<p class="muted">位置由 Cloudflare 根据网络 IP 推断，可能受 VPN、代理、运营商网络影响；城市和地区仅供参考，不代表精确 GPS 位置。</p>
+</main>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+let token=sessionStorage.getItem("fishjoy_admin_token")||"";
+$("token").value=token;
+function date(v){if(!v)return "—";return new Date(Number(v)*1000).toLocaleString();}
+function location(x){return [x.country,x.region,x.city].filter(Boolean).join(" · ")||"暂无位置数据";}
+function request(path){return fetch(path,{headers:{"X-Admin-Token":token},cache:"no-store"}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||("HTTP "+r.status));return d;});}
+function cell(row,value){const td=document.createElement("td");td.textContent=value;row.appendChild(td);return td;}
+function loadPlayers(){
+ $("status").textContent="正在读取玩家列表…";
+ request("/api/admin/players").then(data=>{
+  const body=$("players");body.textContent="";
+  (data.players||[]).forEach(p=>{
+   const tr=document.createElement("tr"),idCell=document.createElement("td"),btn=document.createElement("button");
+   btn.className="id";btn.textContent=p.id;btn.addEventListener("click",()=>loadDetail(p.id,p.username));idCell.appendChild(btn);tr.appendChild(idCell);
+   cell(tr,p.username);const loc=cell(tr,location(p));if(p.city)loc.className="loc";cell(tr,date(p.location_time||p.last_login_at));body.appendChild(tr);
+  });
+  if(!data.players||!data.players.length)body.innerHTML='<tr><td colspan="4" class="empty">暂无玩家账号</td></tr>';
+  $("status").textContent="读取成功，共 "+(data.players||[]).length+" 个账号";
+ }).catch(e=>{$("status").textContent="读取失败："+e.message;});
+}
+function loadDetail(id,name){
+ $("detail").style.display="block";$("detailTitle").textContent=name+" · 登录记录";$("detailId").textContent="账号 ID："+id;
+ $("logins").innerHTML='<tr><td colspan="4" class="empty">正在读取…</td></tr>';
+ request("/api/admin/player-logins?id="+encodeURIComponent(id)).then(data=>{
+  const body=$("logins");body.textContent="";
+  (data.logins||[]).forEach(x=>{const tr=document.createElement("tr");cell(tr,date(x.logged_at));cell(tr,location(x));cell(tr,x.ip||"未获取到");cell(tr,x.colo||"—");body.appendChild(tr);});
+  if(!data.logins||!data.logins.length)body.innerHTML='<tr><td colspan="4" class="empty">该账号尚无新登录记录。旧登录不会补录。</td></tr>';
+ }).catch(e=>{$("logins").textContent="读取失败："+e.message;});
+}
+$("connect").addEventListener("click",()=>{token=$("token").value.trim();if(!token){$("status").textContent="请输入管理员令牌";return;}sessionStorage.setItem("fishjoy_admin_token",token);loadPlayers();});
+$("close").addEventListener("click",()=>{$("detail").style.display="none";});
+if(token)loadPlayers();
+})();
+</script>
+</body></html>
