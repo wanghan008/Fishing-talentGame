@@ -420,7 +420,7 @@ function init(){
   if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
    if(weaponMode!==2){return originalFire.call(this,point);}
    var spread=game.width*.055;originalFire.call(this,point);
-   if(this.coin>=this.cannon.power*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
+   if(this.coin>=Math.ceil(this.cannon.power*1.25)*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
   };}
  }
  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
