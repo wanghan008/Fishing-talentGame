@@ -186,6 +186,21 @@ async function handle(request, env) {
     const now = Math.floor(Date.now() / 1000);
     stage = "login_update_last_login";
     await env.DB.prepare("UPDATE users SET last_login_at=? WHERE id=?").bind(now, user.id).run();
+    stage = "login_record_location";
+    await ensureLoginLogsTable();
+    const cf = request.cf || {};
+    const ip = request.headers.get("CF-Connecting-IP") || "";
+    await env.DB.prepare(
+      "INSERT INTO login_logs (user_id,ip,country,region,city,colo,logged_at) VALUES (?,?,?,?,?,?,?)"
+    ).bind(
+      user.id,
+      ip.slice(0, 64),
+      String(cf.country || request.headers.get("CF-IPCountry") || "").slice(0, 80),
+      String(cf.region || "").slice(0, 120),
+      String(cf.city || "").slice(0, 120),
+      String(cf.colo || "").slice(0, 20),
+      now
+    ).run();
     stage = "login_build_response";
     return json({ user: { id: user.id, username: user.username } }, 200, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
@@ -257,6 +272,17 @@ async function handle(request, env) {
     return json({ cookieHeaderPresent: !!cookieHeaderValue, sessionCookiePresent: true, tokenLength: token.length, sessionMatched: !!row, user: row ? { id: row.id, username: row.username } : null });
   }
 
+  // Login location history starts with successful logins after this feature is deployed.
+  async function ensureLoginLogsTable() {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS login_logs (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, ip TEXT NOT NULL DEFAULT '', country TEXT NOT NULL DEFAULT '', region TEXT NOT NULL DEFAULT '', city TEXT NOT NULL DEFAULT '', colo TEXT NOT NULL DEFAULT '', logged_at INTEGER NOT NULL)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_login_logs_user_time ON login_logs(user_id, logged_at DESC)").run();
+  }
+  function adminAuthorized() {
+    const configured = String(env.ADMIN_TOKEN || "");
+    const supplied = request.headers.get("X-Admin-Token") || "";
+    return configured.length >= 24 && supplied.length === configured.length && supplied === configured;
+  }
+
   // Presence records are created lazily so existing production D1 databases
   // work without a manual migration step.
   async function ensurePresenceTable() {
@@ -280,6 +306,33 @@ async function handle(request, env) {
     const now = Math.floor(Date.now() / 1000);
     const row = await env.DB.prepare("SELECT COUNT(*) AS onlineCount FROM player_presence WHERE last_seen_at>?").bind(now - 45).first();
     return json({ onlineCount: Number(row && row.onlineCount || 0) });
+  }
+
+  if (path === "/api/admin/players" && method === "GET") {
+    if (!adminAuthorized()) return json({ error: "管理员身份验证失败" }, 401);
+    await ensureLoginLogsTable();
+    const rows = await env.DB.prepare(
+      "SELECT u.id,u.username,u.created_at,u.last_login_at," +
+      "(SELECT l.country FROM login_logs l WHERE l.user_id=u.id ORDER BY l.logged_at DESC LIMIT 1) AS country," +
+      "(SELECT l.region FROM login_logs l WHERE l.user_id=u.id ORDER BY l.logged_at DESC LIMIT 1) AS region," +
+      "(SELECT l.city FROM login_logs l WHERE l.user_id=u.id ORDER BY l.logged_at DESC LIMIT 1) AS city," +
+      "(SELECT l.logged_at FROM login_logs l WHERE l.user_id=u.id ORDER BY l.logged_at DESC LIMIT 1) AS location_time " +
+      "FROM users u ORDER BY COALESCE(u.last_login_at,0) DESC LIMIT 500"
+    ).all();
+    return json({ players: rows.results || [] });
+  }
+
+  if (path === "/api/admin/player-logins" && method === "GET") {
+    if (!adminAuthorized()) return json({ error: "管理员身份验证失败" }, 401);
+    const id = url.searchParams.get("id") || "";
+    if (!/^[a-f0-9]{32}$/i.test(id)) return json({ error: "账号 ID 格式不正确" }, 400);
+    await ensureLoginLogsTable();
+    const player = await env.DB.prepare("SELECT id,username FROM users WHERE id=? LIMIT 1").bind(id).first();
+    if (!player) return json({ error: "玩家账号不存在" }, 404);
+    const rows = await env.DB.prepare(
+      "SELECT ip,country,region,city,colo,logged_at FROM login_logs WHERE user_id=? ORDER BY logged_at DESC LIMIT 50"
+    ).bind(id).all();
+    return json({ player, logins: rows.results || [] });
   }
 
   if (path === "/api/leaderboard" && method === "GET") {
