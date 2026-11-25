@@ -226,6 +226,7 @@ function showAccountModal(){
     // Do not keep the login form stuck on "正在处理..." while cloud save loads.
     cloudReady=false;
     closeAccountModal();
+    lastCloudSyncNoticeAt=Date.now();
     notice("登录成功，正在读取云存档...");
     apiRequest("/api/save").then(function(remote){
      if(remote.save)applyCloudSave(remote.save);
@@ -233,7 +234,7 @@ function showAccountModal(){
      cloudReady=true;setAccountLabel();
     }).catch(function(err){
      cloudReady=true;setAccountLabel();
-     notice("登录成功，但云存档读取失败："+err.message);
+     cloudSyncNotice("登录成功，但云存档读取失败："+err.message);
     });
     return;
    }
