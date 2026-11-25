@@ -315,6 +315,12 @@ function updateAchievements(){
  if(state.bossWins>=1) state.achievements.boss1=true;
  saveState();
 }
+var layoutEditButton=null, layoutEditing=false, movableLayoutButtons=[], layoutStorageKey="fishjoy_button_layout_v1";
+function loadButtonLayout(){try{return JSON.parse(localStorage.getItem(layoutStorageKey)||"{}")||{};}catch(e){return {};}}
+function saveButtonLayout(){var data={};movableLayoutButtons.forEach(function(item){var rect=item.node.getBoundingClientRect();data[item.key]={x:rect.left+rect.width/2,y:rect.top};});try{localStorage.setItem(layoutStorageKey,JSON.stringify(data));}catch(e){}}
+function placeMovableButtons(){var saved=loadButtonLayout(),w=window.innerWidth,h=window.innerHeight,defaults=[.12,.37,.63,.88];movableLayoutButtons.forEach(function(item,index){var p=saved[item.key],x=p&&isFinite(p.x)?p.x:w*defaults[index],y=p&&isFinite(p.y)?p.y:h-112,node=item.node;node.style.position="fixed";node.style.zIndex="10000";node.style.transform="translateX(-50%)";var rect=node.getBoundingClientRect(),half=rect.width/2;x=Math.max(half+5,Math.min(w-half-5,x));y=Math.max(55,Math.min(h-rect.height-12,y));node.style.left=x+"px";node.style.top=y+"px";node.style.bottom="auto";});}
+function setLayoutEditing(enabled){layoutEditing=!!enabled;if(layoutEditButton){layoutEditButton.textContent=layoutEditing?"完成并保存":"编辑布局";layoutEditButton.style.background=layoutEditing?"linear-gradient(135deg,#168b55,#075c3b)":"linear-gradient(135deg,#465b70,#26394b)";}movableLayoutButtons.forEach(function(item){item.node.style.outline=layoutEditing?"2px dashed #ffe36b":"";item.node.style.boxShadow=layoutEditing?"0 0 13px rgba(255,220,80,.85)":item.originalShadow;item.node.style.cursor=layoutEditing?"move":"pointer";item.node.style.touchAction=layoutEditing?"none":"manipulation";});if(!layoutEditing)saveButtonLayout();notice(layoutEditing?"布局编辑已开启：拖动底部按钮调整位置":"布局已保存");}
+function registerMovableButton(node,key){node.dataset.layoutKey=key;node.style.position="fixed";node.style.zIndex="10000";var originalShadow=node.style.boxShadow;node.addEventListener("pointerdown",function(e){if(!layoutEditing)return;e.preventDefault();e.stopPropagation();var rect=node.getBoundingClientRect(),startX=e.clientX,startY=e.clientY,left=rect.left+rect.width/2,top=rect.top,moved=false;try{node.setPointerCapture(e.pointerId);}catch(err){}function move(ev){var dx=ev.clientX-startX,dy=ev.clientY-startY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;var w=window.innerWidth,h=window.innerHeight,r=node.getBoundingClientRect(),x=Math.max(r.width/2+5,Math.min(w-r.width/2-5,left+dx)),y=Math.max(55,Math.min(h-r.height-12,top+dy));node.style.left=x+"px";node.style.top=y+"px";}function end(){window.removeEventListener("pointermove",move);window.removeEventListener("pointerup",end);window.removeEventListener("pointercancel",end);if(moved)saveButtonLayout();}window.addEventListener("pointermove",move,{passive:false});window.addEventListener("pointerup",end);window.addEventListener("pointercancel",end);});movableLayoutButtons.push({node:node,key:key,originalShadow:originalShadow});}
 function addProgressUI(){
  if(document.getElementById("fishjoy-expansion"))return;
  var style=document.createElement("style");
@@ -325,18 +331,23 @@ function addProgressUI(){
  statusNode=document.createElement("div");statusNode.className="stats";statusNode.style.cssText="padding:2px 0;border-radius:8px;";
  onlineNode=document.createElement("span");onlineNode.className="stat-online";onlineNode.textContent="在线人数 --";onlineNode.style.cssText="background:rgba(12,105,70,.92);color:#eafff3;border:1px solid #65d99b;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none;";statusNode.appendChild(onlineNode);
  var controls=document.createElement("div");controls.className="controls";
- weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);
- var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";controls.appendChild(cannonButton);
- var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
- var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
- var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
- var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";controls.appendChild(leaderboardButton);
- accountButton=makeButton("账号/云存档",showAccountModal);controls.appendChild(accountButton);
- bar.appendChild(statusNode);bar.appendChild(controls);
- noticeNode=document.createElement("div");noticeNode.className="notice";
- overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
- clearSkillButton=makeButton("全屏清理 ×0",activateScreenClear);clearSkillButton.id="fishjoy-screen-clear";clearSkillButton.style.cssText+="position:fixed;z-index:10001;left:calc(50% + 58px);bottom:calc(22px + env(safe-area-inset-bottom));min-height:42px;padding:8px 12px;background:linear-gradient(135deg,#a52bca,#5a218e);border:2px solid #e4a7ff;border-radius:12px;color:#fff;font-size:14px;box-shadow:0 0 12px rgba(190,90,255,.55);";document.body.appendChild(clearSkillButton);
- refresh();updateOnlineCount();
+  var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
+  var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
+  var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
+  layoutEditButton=makeButton("编辑布局",function(){setLayoutEditing(!layoutEditing);});layoutEditButton.style.cssText+="background:linear-gradient(135deg,#465b70,#26394b);border-color:#b8d5e8;color:#fff;";controls.appendChild(layoutEditButton);
+  bar.appendChild(statusNode);bar.appendChild(controls);
+  noticeNode=document.createElement("div");noticeNode.className="notice";
+  overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
+  weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);
+  var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";
+  var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";
+  accountButton=makeButton("账号/云存档",showAccountModal);
+  registerMovableButton(weaponButton,"weapon");registerMovableButton(cannonButton,"cannon");
+  registerMovableButton(leaderboardButton,"leaderboard");registerMovableButton(accountButton,"account");
+  document.body.appendChild(weaponButton);document.body.appendChild(cannonButton);document.body.appendChild(leaderboardButton);document.body.appendChild(accountButton);
+  placeMovableButtons();
+  clearSkillButton=makeButton("全屏清理 ×0",activateScreenClear);clearSkillButton.id="fishjoy-screen-clear";clearSkillButton.style.cssText+="position:fixed;z-index:10001;left:calc(50% + 58px);bottom:calc(22px + env(safe-area-inset-bottom));min-height:42px;padding:8px 12px;background:linear-gradient(135deg,#a52bca,#5a218e);border:2px solid #e4a7ff;border-radius:12px;color:#fff;font-size:14px;box-shadow:0 0 12px rgba(190,90,255,.55);";document.body.appendChild(clearSkillButton);
+  refresh();updateOnlineCount();
  if(!onlinePollTimer)onlinePollTimer=window.setInterval(sendHeartbeat,15000);
 }
 function activateScreenClear(){
@@ -527,6 +538,7 @@ game.update=function(timeInfo){
 };
 game.resizeToViewport=resizeGame;
 window.addEventListener("resize",resizeGame,false);
+window.addEventListener("resize",function(){if(movableLayoutButtons.length)placeMovableButtons();},false);
 if(window.visualViewport)window.visualViewport.addEventListener("resize",resizeGame,false);
 window.addEventListener("orientationchange",function(){setTimeout(resizeGame,250);},false);
 })();
