@@ -252,7 +252,7 @@ function restoreCloudSession(){
   cloudReady=true;setAccountLabel();
  }).catch(function(){cloudUser=null;cloudReady=true;setAccountLabel();});
 }
-function notice(msg){ if(!noticeNode)return; noticeNode.textContent=msg; noticeNode.style.opacity="1"; window.clearTimeout(noticeNode._timer); noticeNode._timer=window.setTimeout(function(){noticeNode.style.opacity="0";},2600); }
+function notice(msg){ if(!noticeNode)return; noticeNode.textContent=msg; var goldNotice=/BOSS来袭|大量鱼群|鱼群风暴|击杀BOSS|BOSS挑战成功|BOSS被击败/i.test(msg); noticeNode.style.color=goldNotice?"#ffd700":"#fff"; noticeNode.style.textShadow=goldNotice?"0 0 6px rgba(255,215,0,.65)":"0 1px 3px #000"; noticeNode.style.opacity="1"; window.clearTimeout(noticeNode._timer); noticeNode._timer=window.setTimeout(function(){noticeNode.style.opacity="0";},2600); }
  function cloudSyncNotice(msg){var now=Date.now();if(!lastCloudSyncNoticeAt||now-lastCloudSyncNoticeAt>=120000){lastCloudSyncNoticeAt=now;notice(msg);}}
 function makeButton(label, action){
  var b=document.createElement("button"); b.type="button"; b.textContent=label;
