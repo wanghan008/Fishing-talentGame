@@ -416,16 +416,76 @@ function resizeGame(){
  }
  if(game.stage.updatePosition)game.stage.updatePosition();
 }
+function playChainLightningWeb(x,y,radius,targets){
+ var canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");
+ if(!ctx)return;
+ canvas.style.cssText="position:fixed;inset:0;width:100%;height:100%;z-index:9998;pointer-events:none;";
+ var w=Math.max(1,window.innerWidth),h=Math.max(1,window.innerHeight),dpr=Math.min(2,window.devicePixelRatio||1);
+ canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.scale(dpr,dpr);
+ document.body.appendChild(canvas);
+ var started=Date.now(),duration=760,cx=x,cy=y;
+ function bolt(ax,ay,bx,by,seed,alpha){
+  var dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy),steps=Math.max(5,Math.floor(len/18)),nx=-dy/(len||1),ny=dx/(len||1);
+  ctx.beginPath();ctx.moveTo(ax,ay);
+  for(var j=1;j<steps;j++){var t=j/steps,off=Math.sin(seed*17+j*12.7)*Math.min(17,len*.055);ctx.lineTo(ax+dx*t+nx*off,ay+dy*t+ny*off);}
+  ctx.lineTo(bx,by);ctx.strokeStyle="rgba(125,235,255,"+alpha+")";ctx.lineWidth=2.5;ctx.shadowColor="#36cfff";ctx.shadowBlur=15;ctx.stroke();ctx.shadowBlur=0;
+ }
+ function frame(){
+  if(!canvas.parentNode)return;
+  var p=Math.min(1,(Date.now()-started)/duration),fade=1-p;
+  ctx.clearRect(0,0,w,h);
+  var reach=radius*(.35+.8*p);
+  // Bright expanding electric web: concentric rings, radial strands and cross-links.
+  ctx.save();ctx.translate(cx,cy);ctx.globalAlpha=fade;
+  for(var ring=1;ring<=4;ring++){
+   var rr=reach*ring/4;
+   ctx.beginPath();ctx.arc(0,0,rr,0,Math.PI*2);
+   ctx.strokeStyle=ring%2?"rgba(100,225,255,.82)":"rgba(190,250,255,.58)";
+   ctx.lineWidth=ring===4?3:1.7;ctx.shadowColor="#31cfff";ctx.shadowBlur=13;ctx.stroke();
+  }
+  var rays=18;
+  for(var a=0;a<rays;a++){
+   var ang=Math.PI*2*a/rays,ex=Math.cos(ang)*reach,ey=Math.sin(ang)*reach;
+   ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(ex,ey);
+   ctx.strokeStyle="rgba(120,225,255,.8)";ctx.lineWidth=1.8;ctx.shadowColor="#36cfff";ctx.shadowBlur=10;ctx.stroke();
+   for(var b=1;b<4;b++){
+    var t=b/4,px=ex*t,py=ey*t;
+    ctx.beginPath();ctx.arc(px,py,3.2,0,Math.PI*2);ctx.fillStyle="#e9ffff";ctx.fill();
+   }
+  }
+  // Diagonal mesh makes the capture net read as a broad fishing net.
+  for(var k=0;k<18;k++){
+   var a1=Math.PI*2*k/18,a2=Math.PI*2*((k+5)%18)/18;
+   ctx.beginPath();ctx.moveTo(Math.cos(a1)*reach,Math.sin(a1)*reach);ctx.lineTo(Math.cos(a2)*reach,Math.sin(a2)*reach);
+   ctx.strokeStyle="rgba(120,230,255,.38)";ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.restore();
+  // Branching lightning jumps from the impact point to nearby fish positions.
+  var count=Math.min(targets.length,16);
+  for(var q=0;q<count;q++){
+   var target=targets[q],tx=target.x,ty=target.y;
+   bolt(cx,cy,tx,ty,q+Math.floor(p*9),.95*fade);
+   if(q>0&&q%3===0)bolt(targets[q-1].x,targets[q-1].y,tx,ty,q+31,.7*fade);
+  }
+  var glow=ctx.createRadialGradient(cx,cy,2,cx,cy,Math.max(8,reach*.24));
+  glow.addColorStop(0,"rgba(255,255,255,"+(.8*fade)+")");glow.addColorStop(.35,"rgba(70,220,255,"+(.42*fade)+")");glow.addColorStop(1,"rgba(30,140,255,0)");
+  ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,reach*.24,0,Math.PI*2);ctx.fill();
+  if(p<1)window.requestAnimationFrame(frame);else if(canvas.parentNode)canvas.parentNode.removeChild(canvas);
+ }
+ window.requestAnimationFrame(frame);
+}
 function triggerChainBlast(x,y,power){
  if(!game.fishManager||!game.fishManager.fishes)return;
- var radius=Math.max(135,Math.min(220,game.width*.22)),r2=radius*radius,hit=0,fishes=game.fishManager.fishes.slice();
+ var radius=Math.max(135,Math.min(220,game.width*.22)),r2=radius*radius,hit=0,fishes=game.fishManager.fishes.slice(),targets=[];
  for(var i=0;i<fishes.length;i++){
   var fish=fishes[i];if(!fish||fish.captured||fish.boss)continue;
   var dx=fish.x-x,dy=fish.y-y;if(dx*dx+dy*dy>r2)continue;
+  targets.push({x:fish.x,y:fish.y});
   if(fish.canBeCaptured(power-1)){fish.moving=false;fish.captured=true;fish.capturingCounter=game.fps>>1;fish.gotoAndPlay("capture");hit++;}
  }
- try{var effect=new Q.Bitmap(ns.R.webs[Math.max(0,Math.min(6,power-1))]);effect.x=x;effect.y=y;effect.scaleX=effect.scaleY=.85;effect.alpha=.85;game.stage.addChild(effect);Q.Tween.to(effect,{scaleX:2.2,scaleY:2.2,alpha:0},{time:360,onComplete:function(){if(effect.parent)effect.parent.removeChild(effect);}});}catch(e){}
- notice("连锁爆炸！范围命中 "+hit+" 条鱼");
+ playChainLightningWeb(x,y,radius,targets);
+ try{var effect=new Q.Bitmap(ns.R.webs[Math.max(0,Math.min(6,power-1))]);effect.x=x;effect.y=y;effect.scaleX=effect.scaleY=1.15;effect.alpha=1;game.stage.addChild(effect);Q.Tween.to(effect,{scaleX:2.8,scaleY:2.8,alpha:0},{time:520,onComplete:function(){if(effect.parent)effect.parent.removeChild(effect);}});}catch(e){}
+ notice("⚡ 闪电连锁！巨型电网覆盖范围，命中 "+hit+" 条鱼");
 }
 function init(){
  loadState();addFishVariants();addProgressUI();resizeGame();
