@@ -67,6 +67,7 @@ function flushCloudSave(useKeepalive){
   if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
   var version=cloudSaveVersion;
   var payload=JSON.stringify({save:exportSave()});
+  var uploadSucceeded=false;
   cloudSaveInFlight=true;
   fetch("/api/save",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:payload,keepalive:!!useKeepalive})
    .then(function(r){return r.json().catch(function(){return {};}).then(function(data){
@@ -81,12 +82,13 @@ function flushCloudSave(useKeepalive){
      throw new Error(msg);
     }
     if(cloudSaveVersion===version)cloudSaveDirty=false;
+    uploadSucceeded=true;
     if(!useKeepalive)notice("云端存档同步成功");
    });})
    .catch(function(err){if(!useKeepalive)notice("云端同步失败："+err.message);})
    .finally(function(){
     cloudSaveInFlight=false;
-    if(cloudSaveDirty&&!useKeepalive)scheduleCloudSave();
+    if(cloudSaveDirty&&uploadSucceeded&&!useKeepalive)scheduleCloudSave();
    });
  }
  function scheduleCloudSave(){
