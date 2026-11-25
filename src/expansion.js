@@ -6,7 +6,7 @@ var ns = Q.use("fish"), game = ns.game;
 var PLAYER_ID_KEY = "fishjoy_player_id_v1";
 var playerId = getOrCreatePlayerId();
 var KEY = "fishjoy_progress_v1_" + playerId;
-var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, challengeBossHp:0, eventCount:0, chainKills:0, chainReady:false, screenClearCharges:0};
+var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, challengeBossHp:0, eventCount:0, chainKills:0, chainCharges:0, screenClearCharges:0};
 function getOrCreatePlayerId(){
  try {
   var id=localStorage.getItem(PLAYER_ID_KEY);
@@ -38,7 +38,7 @@ function loadState(){
   if(saved && typeof saved==="object") {
    state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):null;
    state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
-   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0; state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0)); state.chainReady=!!saved.chainReady; state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
+   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0; state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0)); state.chainCharges=Math.max(0,Math.min(99,Number(saved.chainCharges)||0)); state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
   }
  } catch(e){}
 }
@@ -137,7 +137,7 @@ function applyCloudSave(saved){
  state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):state.coins;
  state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
  state.catches=saved.catches||{};state.achievements=saved.achievements||{};
- state.bossWins=Number(saved.bossWins)||0;state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0));state.eventCount=Number(saved.eventCount)||0;state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0));state.chainReady=!!saved.chainReady;state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
+ state.bossWins=Number(saved.bossWins)||0;state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0));state.eventCount=Number(saved.eventCount)||0;state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0));state.chainCharges=Math.max(0,Math.min(99,Number(saved.chainCharges)||0));state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
  if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
  if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
  saveState();refresh();
@@ -303,7 +303,7 @@ function makeButton(label, action){
 function refresh(){
  if(!statusNode)return;
  var gold=game.player?game.player.coin:0;
- statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span><span class="stat-chain">连锁 <b>'+(state.chainReady?"已就绪":state.chainKills+"/15")+'</b></span>';
+ statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span><span class="stat-chain">连锁 <b>'+(state.chainCharges>0?"已充能×"+state.chainCharges:state.chainKills+"/15")+'</b></span>';
  if(clearSkillButton){clearSkillButton.textContent="全屏清理 ×"+state.screenClearCharges;clearSkillButton.disabled=state.screenClearCharges<=0;clearSkillButton.style.opacity=state.screenClearCharges>0?"1":".55";}
  if(onlineNode){if(!onlineNode.textContent)onlineNode.textContent="在线人数 --";statusNode.appendChild(onlineNode);}
 }
@@ -444,7 +444,7 @@ function init(){
    if(this.coin>=(this.cannon.power===7?10:Math.ceil(this.cannon.power*1.25))*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
   };}
  }
- if(!originalBulletCheckCollision&&ns.Bullet&&ns.Bullet.prototype){originalBulletCheckCollision=ns.Bullet.prototype.checkCollision;ns.Bullet.prototype.checkCollision=function(){var x=this.x,y=this.y,power=this.power,hit=originalBulletCheckCollision.apply(this,arguments);if(hit&&state.chainReady){state.chainReady=false;saveState();triggerChainBlast(x,y,power);refresh();}return hit;};}
+ if(!originalBulletCheckCollision&&ns.Bullet&&ns.Bullet.prototype){originalBulletCheckCollision=ns.Bullet.prototype.checkCollision;ns.Bullet.prototype.checkCollision=function(){var x=this.x,y=this.y,power=this.power,hit=originalBulletCheckCollision.apply(this,arguments);if(hit&&state.chainCharges>0){state.chainCharges--;saveState();triggerChainBlast(x,y,power);refresh();}return hit;};}
  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
   var value=fish.coin;
   if(Date.now()<state.rewardBoostUntil)fish.coin=value*2;
@@ -452,7 +452,7 @@ function init(){
   fish.coin=value;
   var index=ns.R.fishTypes.indexOf(fish.type);if(index<1)index=1;
   state.catches[index]=(state.catches[index]||0)+1;
-  state.chainKills++;if(state.chainKills>=15){state.chainKills=0;state.chainReady=true;notice("连锁效果已充能！下一次命中将引发范围爆炸");}
+  state.chainKills++;if(state.chainKills>=15){state.chainKills=0;state.chainCharges=Math.min(99,state.chainCharges+1);notice("连锁效果已充能！当前 "+state.chainCharges+" 次，下一次命中触发范围爆炸");}
   if(state.screenClearCharges<3&&Math.random()<0.08){state.screenClearCharges++;notice("获得全屏清理技能！当前 "+state.screenClearCharges+"/3 次");}
   updateAchievements();saveState();refresh();
  };}
