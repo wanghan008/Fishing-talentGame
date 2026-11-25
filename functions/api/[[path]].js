@@ -145,6 +145,21 @@ async function handle(request, env) {
       throw error;
     }
     const token = await createSession(id, env, setStage);
+    stage = "register_record_location";
+    await ensureLoginLogsTable();
+    const registerCf = request.cf || {};
+    const registerIp = request.headers.get("CF-Connecting-IP") || "";
+    await env.DB.prepare(
+      "INSERT INTO login_logs (user_id,ip,country,region,city,colo,logged_at) VALUES (?,?,?,?,?,?,?)"
+    ).bind(
+      id,
+      registerIp.slice(0, 64),
+      String(registerCf.country || request.headers.get("CF-IPCountry") || "").slice(0, 80),
+      String(registerCf.region || "").slice(0, 120),
+      String(registerCf.city || "").slice(0, 120),
+      String(registerCf.colo || "").slice(0, 20),
+      now
+    ).run();
     stage = "build_register_response";
     return json({ user: { id, username }, save: guestSave }, 201, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
