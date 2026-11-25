@@ -6,7 +6,7 @@ var ns = Q.use("fish"), game = ns.game;
 var PLAYER_ID_KEY = "fishjoy_player_id_v1";
 var playerId = getOrCreatePlayerId();
 var KEY = "fishjoy_progress_v1_" + playerId;
-var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, eventCount:0};
+var state = {coins:null, cannonLevel:1, rewardBoostUntil:0, catches:{}, achievements:{}, bossWins:0, challengeBossHp:0, eventCount:0};
 function getOrCreatePlayerId(){
  try {
   var id=localStorage.getItem(PLAYER_ID_KEY);
@@ -37,11 +37,11 @@ function loadState(){
   if(saved && typeof saved==="object") {
    state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):null;
    state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
-   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.eventCount=Number(saved.eventCount)||0;
+   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0;
   }
  } catch(e){}
 }
-var cloudUser=null, cloudReady=false, cloudSaveTimer=null, accountModal=null, accountMode="login";
+var cloudUser=null, cloudReady=false, cloudSaveTimer=null, cloudSaveDirty=false, cloudSaveInFlight=false, cloudSaveVersion=0, accountModal=null, accountMode="login";
 function exportSave(){
  var copy={};
  for(var k in state)copy[k]=state[k];
@@ -62,11 +62,13 @@ function restoreGuestSave(){
  if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
  saveState();refresh();setAccountLabel();
 }
-function scheduleCloudSave(){
- if(!cloudUser||!cloudReady)return;
- if(cloudSaveTimer)clearTimeout(cloudSaveTimer);
- cloudSaveTimer=setTimeout(function(){
-  fetch("/api/save",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({save:exportSave()})})
+function flushCloudSave(useKeepalive){
+  if(!cloudUser||!cloudReady||!cloudSaveDirty||cloudSaveInFlight)return;
+  if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
+  var version=cloudSaveVersion;
+  var payload=JSON.stringify({save:exportSave()});
+  cloudSaveInFlight=true;
+  fetch("/api/save",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:payload,keepalive:!!useKeepalive})
    .then(function(r){return r.json().catch(function(){return {};}).then(function(data){
     if(!r.ok){
      var msg=data.error||("HTTP "+r.status);
@@ -78,11 +80,26 @@ function scheduleCloudSave(){
      }
      throw new Error(msg);
     }
-    notice("云端存档同步成功");
+    if(cloudSaveVersion===version)cloudSaveDirty=false;
+    if(!useKeepalive)notice("云端存档同步成功");
    });})
-   .catch(function(err){notice("云端同步失败："+err.message);});
- },900);
-}
+   .catch(function(err){if(!useKeepalive)notice("云端同步失败："+err.message);})
+   .finally(function(){
+    cloudSaveInFlight=false;
+    if(cloudSaveDirty&&!useKeepalive)scheduleCloudSave();
+   });
+ }
+ function scheduleCloudSave(){
+  if(!cloudUser||!cloudReady)return;
+  cloudSaveDirty=true;cloudSaveVersion++;
+  if(cloudSaveTimer)clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(function(){cloudSaveTimer=null;flushCloudSave(false);},500);
+ }
+ // Retry dirty data periodically, even if no new gameplay event occurs.
+ window.setInterval(function(){if(cloudSaveDirty)flushCloudSave(false);},15000);
+ // Best-effort final upload when the page is backgrounded or closed.
+ document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushCloudSave(true);});
+ window.addEventListener("pagehide",function(){flushCloudSave(true);});
 function saveState(){
  try {
   if(game.player)state.coins=game.player.coin;
@@ -117,7 +134,7 @@ function applyCloudSave(saved){
  state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):state.coins;
  state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
  state.catches=saved.catches||{};state.achievements=saved.achievements||{};
- state.bossWins=Number(saved.bossWins)||0;state.eventCount=Number(saved.eventCount)||0;
+ state.bossWins=Number(saved.bossWins)||0;state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0));state.eventCount=Number(saved.eventCount)||0;
  if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
  if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
  saveState();refresh();
@@ -305,8 +322,8 @@ function spawnBoss(){
  var boss=new ns.Fish(type); boss.setType(type); boss.id="challengeBoss_"+Date.now();
  boss.scaleX=boss.scaleY=Math.min(.62,Math.max(.38,game.width/850));
  boss.x=game.width*.5; boss.y=game.height*.42; boss.speed=.22; boss.setDirection(0);
- boss.coin=500;boss.captureRate=1;boss.bossHp=12;boss.bossMaxHp=12;boss.boss=true;boss.canTurning=false;
- boss.canBeCaptured=function(){this.bossHp--;notice("BOSS受到攻击："+Math.max(0,this.bossHp)+"/"+this.bossMaxHp);if(this.bossHp<=0){state.bossWins++;saveState();updateAchievements();notice("BOSS挑战成功！奖励500金币");return true;}return false;};
+ boss.coin=500;boss.captureRate=1;boss.bossHp=state.challengeBossHp>0?state.challengeBossHp:12;boss.bossMaxHp=12;boss.boss=true;boss.canTurning=false;state.challengeBossHp=boss.bossHp;saveState();
+ boss.canBeCaptured=function(){this.bossHp--;state.challengeBossHp=Math.max(0,this.bossHp);saveState();notice("BOSS受到攻击："+Math.max(0,this.bossHp)+"/"+this.bossMaxHp);if(this.bossHp<=0){state.challengeBossHp=0;state.bossWins++;saveState();updateAchievements();notice("BOSS挑战成功！奖励500金币");return true;}return false;};
  game.fishManager.fishes.push(boss);game.fishContainer.addChild(boss);lastBoss=tick;
  notice("深海BOSS来袭！连续命中12次即可击败");
 }
