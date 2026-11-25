@@ -329,7 +329,7 @@ function refresh(){
  var gold=game.player?game.player.coin:0;
  statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span><span class="stat-chain">连锁 <b>'+(state.chainCharges>0?"已充能×"+state.chainCharges:state.chainKills+"/15")+'</b></span>';
  if(clearSkillButton){clearSkillButton.textContent="全屏清理 ×"+state.screenClearCharges;clearSkillButton.disabled=state.screenClearCharges<=0;clearSkillButton.style.opacity=state.screenClearCharges>0?"1":".55";}
- if(onlineNode){if(!onlineNode.textContent)onlineNode.textContent="在线人数 --";statusNode.appendChild(onlineNode);}
+ if(onlineNode&&!onlineNode.textContent)onlineNode.textContent="在线人数 --";
 }
 function updateAchievements(){
  var total=0; Object.keys(state.catches).forEach(function(k){total+=state.catches[k]||0;});
