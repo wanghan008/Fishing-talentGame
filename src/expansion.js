@@ -303,7 +303,7 @@ function refresh(){
  if(!statusNode)return;
  var gold=game.player?game.player.coin:0;
  statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span>';
- if(onlineNode&&!onlineNode.textContent)onlineNode.textContent="在线人数 --";
+ if(onlineNode){if(!onlineNode.textContent)onlineNode.textContent="在线人数 --";statusNode.appendChild(onlineNode);}
 }
 function updateAchievements(){
  var total=0; Object.keys(state.catches).forEach(function(k){total+=state.catches[k]||0;});
