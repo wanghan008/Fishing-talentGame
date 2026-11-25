@@ -143,7 +143,8 @@ function applyCloudSave(saved){
  saveState();refresh();
 }
 function setAccountLabel(){
- if(accountButton)accountButton.textContent=cloudUser?"账号："+cloudUser.username:"账号/云存档";
+ // Keep the top control width stable before and after authentication.
+ if(accountButton)accountButton.textContent=cloudUser?"我的账号":"账号/云存档";
 }
 function updateOnlineCount(){
  apiRequest("/api/online-count").then(function(data){
@@ -224,18 +225,19 @@ function showAccountModal(){
  var registerTab=makeButton("注册账号",function(){accountMode="register";render();});
  tabs.appendChild(loginTab);tabs.appendChild(registerTab);
  var form=document.createElement("form");form.style.cssText="display:flex;flex-direction:column;gap:10px;";
- var nameLabel=document.createElement("label");nameLabel.textContent="游戏昵称";
- var nameInput=document.createElement("input");nameInput.autocomplete="username";nameInput.maxLength=20;nameInput.required=true;nameInput.placeholder="3-20位昵称";nameInput.style.cssText="padding:12px;border-radius:8px;border:1px solid #6ba9bd;font-size:16px;width:100%;";
- var passLabel=document.createElement("label");passLabel.textContent="密码";
+ var nameLabel=document.createElement("label");nameLabel.textContent="游戏昵称";nameLabel.style.cssText="display:flex;flex-direction:column;gap:6px;width:100%;";
+ var nameInput=document.createElement("input");nameInput.autocomplete="username";nameInput.maxLength=20;nameInput.required=true;nameInput.placeholder="3-20位昵称";nameInput.style.cssText="box-sizing:border-box;padding:12px;border-radius:8px;border:1px solid #6ba9bd;font-size:16px;width:100%;";
+ var passLabel=document.createElement("label");passLabel.textContent="密码";passLabel.style.cssText="display:flex;flex-direction:column;gap:6px;width:100%;";
  var passInput=document.createElement("input");passInput.type="password";passInput.autocomplete="current-password";passInput.minLength=8;passInput.maxLength=72;passInput.required=true;passInput.placeholder="至少8位";passInput.style.cssText=nameInput.style.cssText;
  var hint=document.createElement("div");hint.style.cssText="font-size:12px;color:#b9d9e4;line-height:1.5;";
  var error=document.createElement("div");error.style.cssText="color:#ffb1a8;font-size:13px;min-height:18px;";
  var submit=document.createElement("button");submit.type="submit";submit.style.cssText="padding:12px;border:0;border-radius:8px;background:#1598bd;color:white;font-size:16px;font-weight:bold;";
  var close=makeButton("关闭",closeAccountModal);close.style.marginTop="10px";close.style.width="100%";
  nameLabel.appendChild(nameInput);passLabel.appendChild(passInput);
- form.appendChild(nameLabel);form.appendChild(nameInput);form.appendChild(passLabel);form.appendChild(passInput);form.appendChild(hint);form.appendChild(error);form.appendChild(submit);
- panel.appendChild(heading);panel.appendChild(tabs);panel.appendChild(form);
- if(cloudUser){var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var historyButton=makeButton("查看我的登录记录",showMyLoginHistory);historyButton.style.cssText+="width:100%;margin:4px 0 8px;background:linear-gradient(135deg,#087da4,#07517f);";panel.appendChild(historyButton);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);
+ form.appendChild(nameLabel);form.appendChild(passLabel);form.appendChild(hint);form.appendChild(error);form.appendChild(submit);
+ panel.appendChild(heading);
+ if(!cloudUser){panel.appendChild(tabs);panel.appendChild(form);}
+ if(cloudUser){panel.appendChild(error);var who=document.createElement("div");who.textContent="当前已登录："+cloudUser.username;who.style.cssText="text-align:center;margin:8px 0;color:#b9e9ff;";panel.appendChild(who);var historyButton=makeButton("查看我的登录记录",showMyLoginHistory);historyButton.style.cssText+="width:100%;margin:4px 0 8px;background:linear-gradient(135deg,#087da4,#07517f);";panel.appendChild(historyButton);var logout=makeButton("退出登录",function(){apiRequest("/api/logout",{}).then(function(){restoreGuestSave();closeAccountModal();notice("已退出账号，当前设备继续使用游客存档");}).catch(function(e){error.textContent=e.message;});});logout.style.width="100%";panel.appendChild(logout);
   var deleteButton=makeButton("注销账号",function(){deletePanel.style.display=deletePanel.style.display==="none"?"block":"none";});
   deleteButton.style.cssText+="width:100%;margin-top:8px;border-color:#ff8d82;color:#ffd0ca;";
   panel.appendChild(deleteButton);
