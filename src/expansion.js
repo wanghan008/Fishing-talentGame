@@ -14,7 +14,7 @@ function getOrCreatePlayerId(){
   return id;
  } catch(e){return "guest_session";}
 }
-var overlay, statusNode, noticeNode, accountButton, tick=0, lastEvent=0, lastBoss=0;
+var overlay, statusNode, noticeNode, accountButton, onlineNode, leaderboardModal=null, tick=0, lastEvent=0, lastBoss=0, onlinePollTimer=null;
 var originalCapture = null, originalUpdate = null, originalMakeFish = null, originalFire = null, originalUpdateCoin = null;
 var weaponMode = 0, weaponButton = null;
 var weaponNames = ["标准炮","连发炮","散射炮"];
@@ -56,7 +56,7 @@ function exportGuestSave(){
  return exportSave();
 }
 function restoreGuestSave(){
- cloudUser=null;cloudReady=true;
+ cloudUser=null;cloudReady=true;updateOnlineCount();
  loadState();
  if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
  if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
@@ -144,6 +144,46 @@ function applyCloudSave(saved){
 function setAccountLabel(){
  if(accountButton)accountButton.textContent=cloudUser?"账号："+cloudUser.username:"账号/云存档";
 }
+function updateOnlineCount(){
+ apiRequest("/api/online-count").then(function(data){
+  if(onlineNode)onlineNode.textContent="在线人数 "+(Number(data.onlineCount)||0);
+ }).catch(function(){if(onlineNode)onlineNode.textContent="在线人数 --";});
+}
+function sendHeartbeat(){
+ if(!cloudUser){updateOnlineCount();return;}
+ apiRequest("/api/heartbeat",{}).then(function(data){
+  if(onlineNode)onlineNode.textContent="在线人数 "+(Number(data.onlineCount)||0);
+ }).catch(function(){updateOnlineCount();});
+}
+function showLeaderboard(){
+ if(leaderboardModal){if(leaderboardModal.parentNode)leaderboardModal.parentNode.removeChild(leaderboardModal);leaderboardModal=null;return;}
+ leaderboardModal=document.createElement("div");
+ leaderboardModal.style.cssText="position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,.84);display:flex;align-items:center;justify-content:center;padding:16px;pointer-events:auto;font:15px Arial,sans-serif;color:#fff;";
+ var panel=document.createElement("div");
+ panel.style.cssText="width:min(390px,100%);max-height:82vh;overflow:auto;background:#082b3b;border:1px solid #e6b94c;border-radius:14px;padding:16px;box-shadow:0 8px 35px #000;";
+ var heading=document.createElement("div");heading.textContent="金币排行榜 TOP 10";heading.style.cssText="font-size:20px;font-weight:bold;color:#ffd76a;text-align:center;margin-bottom:12px;";
+ var list=document.createElement("div");list.style.cssText="display:flex;flex-direction:column;gap:7px;min-height:80px;";
+ var status=document.createElement("div");status.textContent="正在读取排行榜...";status.style.cssText="text-align:center;color:#b9d9e4;padding:18px 4px;";
+ var actions=document.createElement("div");actions.style.cssText="display:flex;gap:8px;margin-top:12px;";
+ var reload=makeButton("刷新",loadRows);reload.style.flex="1";
+ var close=makeButton("关闭",function(){if(leaderboardModal&&leaderboardModal.parentNode)leaderboardModal.parentNode.removeChild(leaderboardModal);leaderboardModal=null;});close.style.flex="1";
+ actions.appendChild(reload);actions.appendChild(close);
+ panel.appendChild(heading);panel.appendChild(status);panel.appendChild(list);panel.appendChild(actions);leaderboardModal.appendChild(panel);document.body.appendChild(leaderboardModal);
+ function loadRows(){
+  status.textContent="正在读取排行榜...";list.textContent="";
+  apiRequest("/api/leaderboard").then(function(data){
+   status.textContent=data.entries&&data.entries.length?"按当前云端金币排序":"暂无排行榜数据";
+   (data.entries||[]).slice(0,10).forEach(function(entry,index){
+    var row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;border-radius:8px;background:rgba(255,255,255,.08);";
+    var name=document.createElement("span");name.textContent=(index+1)+". "+entry.username;name.style.cssText="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    var coins=document.createElement("b");coins.textContent=(Number(entry.coins)||0).toLocaleString()+" 金币";coins.style.cssText="color:#ffd76a;white-space:nowrap;";
+    if(index===0)name.style.color="#ffd76a";else if(index===1)name.style.color="#d9e5ed";else if(index===2)name.style.color="#e7a77c";
+    row.appendChild(name);row.appendChild(coins);list.appendChild(row);
+   });
+  }).catch(function(err){status.textContent="排行榜读取失败："+err.message;});
+ }
+ loadRows();
+}
 function closeAccountModal(){
  if(accountModal&&accountModal.parentNode)accountModal.parentNode.removeChild(accountModal);
  accountModal=null;
@@ -218,7 +258,7 @@ function showAccountModal(){
   var payload={username:nameInput.value,password:passInput.value};
   var action=accountMode==="register"?apiRequest("/api/register",{username:payload.username,password:payload.password,guestSave:exportGuestSave()}):apiRequest("/api/login",payload);
   action.then(function(result){
-   cloudUser=result.user;setAccountLabel();
+   cloudUser=result.user;setAccountLabel();sendHeartbeat();
    if(accountMode==="register"){
     cloudReady=true;applyCloudSave(result.save);lastCloudSyncNoticeAt=Date.now();notice("注册成功！游客存档已迁移到账号");
    }else{
@@ -245,7 +285,7 @@ function showAccountModal(){
 }
 function restoreCloudSession(){
  apiRequest("/api/me").then(function(result){
-  cloudUser=result.user;setAccountLabel();cloudReady=false;
+  cloudUser=result.user;setAccountLabel();sendHeartbeat();cloudReady=false;
   return apiRequest("/api/save");
  }).then(function(result){
   if(result.save)applyCloudSave(result.save);
@@ -263,6 +303,7 @@ function refresh(){
  if(!statusNode)return;
  var gold=game.player?game.player.coin:0;
  statusNode.innerHTML='<span class="stat-coin">金币 <b>'+gold+'</b></span><span class="stat-cannon">炮台 <b>'+state.cannonLevel+'/7</b></span><span class="stat-boss">BOSS <b>'+state.bossWins+'胜</b></span>';
+ if(onlineNode&&!onlineNode.textContent)onlineNode.textContent="在线人数 --";
 }
 function updateAchievements(){
  var total=0; Object.keys(state.catches).forEach(function(k){total+=state.catches[k]||0;});
@@ -280,17 +321,20 @@ function addProgressUI(){
  overlay=document.createElement("div"); overlay.id="fishjoy-expansion";
  var bar=document.createElement("div");bar.className="bar";
  statusNode=document.createElement("div");statusNode.className="stats";statusNode.style.cssText="padding:2px 0;border-radius:8px;";
+ onlineNode=document.createElement("span");onlineNode.className="stat-online";onlineNode.textContent="在线人数 --";onlineNode.style.cssText="background:rgba(12,105,70,.92);color:#eafff3;border:1px solid #65d99b;padding:5px 8px;border-radius:7px;font-weight:bold;text-shadow:none;";statusNode.appendChild(onlineNode);
  var controls=document.createElement("div");controls.className="controls";
  weaponButton=makeButton("武器："+weaponNames[weaponMode],cycleWeapon);controls.appendChild(weaponButton);
  var cannonButton=makeButton("升级炮台",upgradeCannon);cannonButton.className="btn-cannon";controls.appendChild(cannonButton);
  var skillButton=makeButton("金币技能",activateBoost);skillButton.className="btn-skill";controls.appendChild(skillButton);
  var bossButton=makeButton("BOSS挑战",spawnBoss);bossButton.className="btn-boss";controls.appendChild(bossButton);
  var achievementButton=makeButton("图鉴/成就",showDex);achievementButton.className="btn-achievement";controls.appendChild(achievementButton);
+ var leaderboardButton=makeButton("金币榜 TOP10",showLeaderboard);leaderboardButton.style.cssText+="background:linear-gradient(135deg,#a87918,#69450b);border-color:#ffdc78;color:#fff7d6;";controls.appendChild(leaderboardButton);
  accountButton=makeButton("账号/云存档",showAccountModal);controls.appendChild(accountButton);
  bar.appendChild(statusNode);bar.appendChild(controls);
  noticeNode=document.createElement("div");noticeNode.className="notice";
  overlay.appendChild(bar);overlay.appendChild(noticeNode);document.body.appendChild(overlay);
- refresh();
+ refresh();updateOnlineCount();
+ if(!onlinePollTimer)onlinePollTimer=window.setInterval(sendHeartbeat,15000);
 }
 function cycleWeapon(){
  weaponMode=(weaponMode+1)%weaponNames.length; if(weaponButton)weaponButton.textContent="武器："+weaponNames[weaponMode];
