@@ -41,7 +41,7 @@ function loadState(){
   }
  } catch(e){}
 }
-var cloudUser=null, cloudReady=false, cloudSaveTimer=null, cloudSaveDirty=false, cloudSaveInFlight=false, cloudSaveVersion=0, accountModal=null, accountMode="login";
+var cloudUser=null, cloudReady=false, cloudSaveTimer=null, cloudSaveDirty=false, cloudSaveInFlight=false, cloudSaveVersion=0, lastCloudSyncNoticeAt=0, accountModal=null, accountMode="login";
 function exportSave(){
  var copy={};
  for(var k in state)copy[k]=state[k];
@@ -83,9 +83,9 @@ function flushCloudSave(useKeepalive){
     }
     if(cloudSaveVersion===version)cloudSaveDirty=false;
     uploadSucceeded=true;
-    if(!useKeepalive)notice("云端存档同步成功");
+    if(!useKeepalive)cloudSyncNotice("云端存档同步成功");
    });})
-   .catch(function(err){if(!useKeepalive)notice("云端同步失败："+err.message);})
+   .catch(function(err){if(!useKeepalive)cloudSyncNotice("云端同步失败："+err.message);})
    .finally(function(){
     cloudSaveInFlight=false;
     if(cloudSaveDirty&&uploadSucceeded&&!useKeepalive)scheduleCloudSave();
@@ -220,7 +220,7 @@ function showAccountModal(){
   action.then(function(result){
    cloudUser=result.user;setAccountLabel();
    if(accountMode==="register"){
-    cloudReady=true;applyCloudSave(result.save);notice("注册成功！游客存档已迁移到账号");
+    cloudReady=true;applyCloudSave(result.save);lastCloudSyncNoticeAt=Date.now();notice("注册成功！游客存档已迁移到账号");
    }else{
     // Authentication is successful as soon as /api/login returns.
     // Do not keep the login form stuck on "正在处理..." while cloud save loads.
@@ -230,7 +230,7 @@ function showAccountModal(){
     apiRequest("/api/save").then(function(remote){
      if(remote.save)applyCloudSave(remote.save);
      else {cloudReady=true;saveState();}
-     cloudReady=true;setAccountLabel();notice("登录成功，云端存档已加载");
+     cloudReady=true;setAccountLabel();
     }).catch(function(err){
      cloudReady=true;setAccountLabel();
      notice("登录成功，但云存档读取失败："+err.message);
@@ -252,6 +252,7 @@ function restoreCloudSession(){
  }).catch(function(){cloudUser=null;cloudReady=true;setAccountLabel();});
 }
 function notice(msg){ if(!noticeNode)return; noticeNode.textContent=msg; noticeNode.style.opacity="1"; window.clearTimeout(noticeNode._timer); noticeNode._timer=window.setTimeout(function(){noticeNode.style.opacity="0";},2600); }
+ function cloudSyncNotice(msg){var now=Date.now();if(!lastCloudSyncNoticeAt||now-lastCloudSyncNoticeAt>=120000){lastCloudSyncNoticeAt=now;notice(msg);}}
 function makeButton(label, action){
  var b=document.createElement("button"); b.type="button"; b.textContent=label;
  b.style.cssText="border:1px solid #8bd8ee;background:rgba(3,45,67,.9);color:#fff;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:bold;touch-action:manipulation;";
