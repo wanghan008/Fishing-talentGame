@@ -453,7 +453,7 @@ function init(){
   var index=ns.R.fishTypes.indexOf(fish.type);if(index<1)index=1;
   state.catches[index]=(state.catches[index]||0)+1;
   state.chainKills++;if(state.chainKills>=15){state.chainKills=0;state.chainCharges=Math.min(99,state.chainCharges+1);notice("连锁效果已充能！当前 "+state.chainCharges+" 次，下一次命中触发范围爆炸");}
-  if(state.screenClearCharges<3&&Math.random()<0.08){state.screenClearCharges++;notice("获得全屏清理技能！当前 "+state.screenClearCharges+"/3 次");}
+  if(state.screenClearCharges<3&&Math.random()<0.05){state.screenClearCharges++;notice("获得全屏清理技能！当前 "+state.screenClearCharges+"/3 次");}
   updateAchievements();saveState();refresh();
  };}
 }
