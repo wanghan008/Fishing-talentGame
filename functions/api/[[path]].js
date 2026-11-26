@@ -432,7 +432,6 @@ async function handle(request, env) {
           id: row.id,
           username: row.username,
           createdAt: row.created_at,
-          lastLoginAt: row.last_login_at || null,
           updatedAt: row.updated_at || null,
           coins: Number(save.coins) || 0,
           cannonLevel: Number(save.cannonLevel) || 0,
@@ -446,7 +445,7 @@ async function handle(request, env) {
       const id = String(url.searchParams.get("id") || "").trim();
       if (!id || id.length > 100) return json({ error: "缺少有效的玩家 ID" }, 400);
       const row = await env.DB.prepare(
-        "SELECT u.id,u.username,u.created_at,u.last_login_at,p.save_json,p.updated_at FROM users u LEFT JOIN player_saves p ON p.user_id=u.id WHERE u.id=? LIMIT 1"
+        "SELECT u.id,u.username,u.created_at,p.save_json,p.updated_at FROM users u LEFT JOIN player_saves p ON p.user_id=u.id WHERE u.id=? LIMIT 1"
       ).bind(id).first();
       if (!row) return json({ error: "找不到该玩家" }, 404);
       let save = {};
