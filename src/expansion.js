@@ -45,7 +45,7 @@ function loadState(){
   });
  });
 }
-var cloudUser=null, cloudReady=false, cloudSaveTimer=null, cloudSaveDirty=false, cloudSaveInFlight=false, cloudSaveVersion=0, lastCloudSyncNoticeAt=0, accountModal=null, accountMode="login";
+var cloudUser=null, cloudReady=false, cloudConflict=false, cloudExpectedUpdatedAt=null, cloudSaveTimer=null, cloudSaveDirty=false, cloudSaveInFlight=false, cloudSaveVersion=0, lastCloudSyncNoticeAt=0, accountModal=null, accountMode="login";
 function exportSave(){
  var copy={};
  for(var k in state)copy[k]=state[k];
@@ -53,12 +53,18 @@ function exportSave(){
  return copy;
 }
 function exportGuestSave(){
- return FishJoyVault.read(KEY).then(function(guest){
+ // Capture the latest in-memory progress, then wait for all queued AES-GCM writes.
+ saveState();
+ return localWriteQueue.then(function(){
+  if(localWriteError)throw new Error("游客存档本地加密写入失败，已取消注册以保护进度："+localWriteError.message);
+  return FishJoyVault.read(KEY);
+ }).then(function(guest){
   return guest&&typeof guest==="object"?guest:exportSave();
  });
 }
 function restoreGuestSave(){
- cloudUser=null;cloudReady=true;updateOnlineCount();
+ if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
+ cloudUser=null;cloudReady=true;cloudConflict=false;cloudExpectedUpdatedAt=null;cloudSaveDirty=false;updateOnlineCount();
  loadState().then(function(){
   if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
   if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
@@ -69,11 +75,17 @@ function flushCloudSave(useKeepalive){
   if(!cloudUser||!cloudReady||!cloudSaveDirty||cloudSaveInFlight)return;
   if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
   var version=cloudSaveVersion;
-  var payload=JSON.stringify({save:exportSave()});
+  var payload=JSON.stringify({save:exportSave(),expectedUpdatedAt:cloudExpectedUpdatedAt});
   var uploadSucceeded=false;
   cloudSaveInFlight=true;
   fetch("/api/save",{method:"PUT",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:payload,keepalive:!!useKeepalive})
    .then(function(r){return r.json().catch(function(){return {};}).then(function(data){
+    if(r.status===409&&data.code==="SAVE_VERSION_CONFLICT"){
+     cloudConflict=true;cloudReady=false;cloudSaveDirty=false;
+     if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
+     notice("云端存档版本冲突：本设备已暂停同步，当前进度保留在本地缓存；请刷新后读取最新云端存档");
+     throw new Error("云端存档版本已被其他设备更新");
+    }
     if(!r.ok){
      var msg=data.error||("HTTP "+r.status);
      if(data.code)msg+="；定位代码："+data.code;
@@ -85,10 +97,11 @@ function flushCloudSave(useKeepalive){
      throw new Error(msg);
     }
     if(cloudSaveVersion===version)cloudSaveDirty=false;
+    if(data.updatedAt!==undefined)cloudExpectedUpdatedAt=data.updatedAt;
     uploadSucceeded=true;
     if(!useKeepalive)cloudSyncNotice("云端存档同步成功");
    });})
-   .catch(function(err){if(!useKeepalive)cloudSyncNotice("云端同步失败："+err.message);})
+   .catch(function(err){if(!cloudConflict&&!useKeepalive)cloudSyncNotice("云端同步失败："+err.message);})
    .finally(function(){
     cloudSaveInFlight=false;
     if(cloudSaveDirty&&uploadSucceeded&&!useKeepalive)scheduleCloudSave();
@@ -105,14 +118,17 @@ function flushCloudSave(useKeepalive){
  // Best-effort final upload when the page is backgrounded or closed.
  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushCloudSave(true);});
  window.addEventListener("pagehide",function(){flushCloudSave(true);});
-var localWriteQueue=Promise.resolve(),localWriteVersion=0;
+var localWriteQueue=Promise.resolve(),localWriteVersion=0,localWriteError=null;
 function saveState(){
  try {
   if(game.player)state.coins=game.player.coin;
   var snapshot=JSON.parse(JSON.stringify(state));
   var storageKey=cloudUser?("fishjoy_account_cache_"+cloudUser.id):KEY;
   var version=++localWriteVersion;
-  localWriteQueue=localWriteQueue.then(function(){return FishJoyVault.write(storageKey,snapshot);}).catch(function(err){
+  localWriteQueue=localWriteQueue.then(function(){return FishJoyVault.write(storageKey,snapshot);}).then(function(){
+   localWriteError=null;
+  }).catch(function(err){
+   localWriteError=err;
    console.error("Fish Joy local save encryption failed:",err);
    if(version===localWriteVersion)notice("本地加密存档写入失败，请勿清理浏览器数据");
   });
@@ -294,6 +310,7 @@ function showAccountModal(){
   action.then(function(result){
    cloudUser=result.user;setAccountLabel();sendHeartbeat();
    if(accountMode==="register"){
+    cloudExpectedUpdatedAt=result.updatedAt===undefined?null:result.updatedAt;cloudConflict=false;
     cloudReady=true;applyCloudSave(result.save);lastCloudSyncNoticeAt=Date.now();notice("注册成功！游客存档已迁移到账号");
    }else{
     // Authentication is successful as soon as /api/login returns.
@@ -303,12 +320,19 @@ function showAccountModal(){
     lastCloudSyncNoticeAt=Date.now();
     notice("登录成功，正在读取云存档...");
     apiRequest("/api/save").then(function(remote){
+     cloudExpectedUpdatedAt=remote.updatedAt===undefined?null:remote.updatedAt;
+     cloudConflict=false;
      if(remote.save)applyCloudSave(remote.save);
      else {cloudReady=true;saveState();}
      cloudReady=true;setAccountLabel();
     }).catch(function(err){
-     cloudReady=true;setAccountLabel();
-     cloudSyncNotice("登录成功，但云存档读取失败："+err.message);
+     // Keep the authenticated account selected, but never upload guest/unknown data
+     // until a successful cloud read establishes the current server revision.
+     cloudReady=false;cloudSaveDirty=false;
+     if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
+     setAccountLabel();
+     notice("登录成功，但云端存档读取失败；账号同步已暂停，未上传本地游客数据。请检查网络后刷新重试");
+     console.warn("Fish Joy cloud save read failed:",err);
     });
     return;
    }
@@ -320,11 +344,19 @@ function showAccountModal(){
 function restoreCloudSession(){
  apiRequest("/api/me").then(function(result){
   cloudUser=result.user;setAccountLabel();sendHeartbeat();cloudReady=false;
-  return apiRequest("/api/save");
- }).then(function(result){
-  if(result.save)applyCloudSave(result.save);
-  cloudReady=true;setAccountLabel();
- }).catch(function(){cloudUser=null;cloudReady=true;setAccountLabel();});
+  return apiRequest("/api/save").then(function(remote){
+   cloudExpectedUpdatedAt=remote.updatedAt===undefined?null:remote.updatedAt;
+   cloudConflict=false;
+   if(remote.save)applyCloudSave(remote.save);
+   cloudReady=true;setAccountLabel();
+  }).catch(function(err){
+   // Authentication succeeded but the save did not load: fail closed for cloud writes.
+   cloudReady=false;cloudSaveDirty=false;
+   if(cloudSaveTimer){clearTimeout(cloudSaveTimer);cloudSaveTimer=null;}
+   notice("账号已登录，但云端存档读取失败；同步已暂停，未上传本地数据。请检查网络后刷新重试");
+   console.warn("Fish Joy cloud session save read failed:",err);
+  });
+ }).catch(function(){cloudUser=null;cloudReady=true;cloudConflict=false;cloudExpectedUpdatedAt=null;setAccountLabel();});
 }
 function notice(msg){ if(!noticeNode)return; var specialEvent=/特殊事件：|金币潮汐|鱼群风暴|珍稀鱼群/i.test(msg); var goldNotice=specialEvent||/BOSS来袭|大量鱼群|击杀BOSS|BOSS挑战成功|BOSS被击败/i.test(msg); noticeNode.textContent=specialEvent&&!/[！!]{3}$/.test(msg)?msg+"！！！":msg; noticeNode.style.color=goldNotice?"#ffd700":"#fff"; noticeNode.style.textShadow=goldNotice?"0 0 6px rgba(255,215,0,.65)":"0 1px 3px #000"; noticeNode.style.opacity="1"; window.clearTimeout(noticeNode._timer); noticeNode._timer=window.setTimeout(function(){noticeNode.style.opacity="0";},2600); }
  function cloudSyncNotice(msg){var now=Date.now();if(!lastCloudSyncNoticeAt||now-lastCloudSyncNoticeAt>=120000){lastCloudSyncNoticeAt=now;notice(msg);}}
