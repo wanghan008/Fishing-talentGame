@@ -11,8 +11,10 @@
    req.onerror=function(){reject(req.error||new Error("IndexedDB open failed"));};
   });
  }
+ var keyPromise=null;
  function getKey(){
-  return openDb().then(function(db){return new Promise(function(resolve,reject){
+  if(keyPromise)return keyPromise;
+  keyPromise=openDb().then(function(db){return new Promise(function(resolve,reject){
    var tx=db.transaction(STORE,"readonly"),req=tx.objectStore(STORE).get(KEY_ID);
    req.onsuccess=function(){var key=req.result;if(key){resolve(key);return;}
     if(!window.crypto||!crypto.subtle){reject(new Error("WebCrypto is unavailable"));return;}
@@ -22,7 +24,8 @@
     }).catch(reject);
    };
    req.onerror=function(){reject(req.error||new Error("Key read failed"));};
-  });});
+  });}).catch(function(err){keyPromise=null;throw err;});
+  return keyPromise;
  }
  function encode(bytes){var s="";for(var i=0;i<bytes.length;i++)s+=String.fromCharCode(bytes[i]);return btoa(s);}
  function decode(value){var s=atob(value),out=new Uint8Array(s.length);for(var i=0;i<s.length;i++)out[i]=s.charCodeAt(i);return out;}
