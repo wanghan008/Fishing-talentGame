@@ -464,8 +464,8 @@ async function handle(request, env) {
       const save = body.save;
       if (!id || id.length > 100) return json({ error: "缺少有效的玩家 ID" }, 400);
       if (!save || typeof save !== "object" || Array.isArray(save)) return json({ error: "存档必须是 JSON 对象" }, 400);
-      if (!Number.isFinite(Number(save.coins)) || Number(save.coins) < 0 || Number(save.coins) > 999999) {
-        return json({ error: "金币必须是 0 到 999999 之间的数字" }, 400);
+      if (!Number.isSafeInteger(Number(save.coins)) || Number(save.coins) < 0 || Number(save.coins) > 9999999999) {
+        return json({ error: "金币必须是 0 到 9,999,999,999 之间的整数" }, 400);
       }
       if (JSON.stringify(save).length > 30000) return json({ error: "存档内容过大" }, 413);
       const exists = await env.DB.prepare("SELECT id FROM users WHERE id=? LIMIT 1").bind(id).first();
