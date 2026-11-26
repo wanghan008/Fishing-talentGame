@@ -29,18 +29,21 @@ function addFishVariants(){
  for(var i=0;i<defs.length;i++){var d=defs[i],base=ns.R.fishTypes[d.base],mix={};for(var k in base.mixin)mix[k]=base.mixin[k];mix.coin=d.coin;mix.captureRate=d.rate;mix.maxNumGroup=d.group;mix.minSpeed=d.speed*.75;mix.maxSpeed=d.speed*1.25;ns.R.fishTypes.push({image:base.image,frames:base.frames,polyArea:base.polyArea,mixin:mix});}
  variantsAdded=true;
 }
+function applyLocalState(saved){
+ if(saved && typeof saved==="object") {
+  state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):null;
+  state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
+  state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0; state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0)); state.chainCharges=Math.max(0,Math.min(99,Number(saved.chainCharges)||0)); state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
+ }
+}
 function loadState(){
- try {
-  var raw=localStorage.getItem(KEY);
-  // Migrate the old browser-wide save into this browser's new guest profile once.
-  if(!raw){raw=localStorage.getItem("fishjoy_progress_v1");}
-  var saved=JSON.parse(raw||"{}");
-  if(saved && typeof saved==="object") {
-   state.coins=(saved.coins!==undefined&&isFinite(Number(saved.coins)))?Math.max(0,Number(saved.coins)):null;
-   state.cannonLevel=Math.max(1,Math.min(7,Number(saved.cannonLevel)||1));
-   state.catches=saved.catches||{}; state.achievements=saved.achievements||{}; state.bossWins=Number(saved.bossWins)||0; state.challengeBossHp=Math.max(0,Math.min(12,Number(saved.challengeBossHp)||0)); state.eventCount=Number(saved.eventCount)||0; state.chainKills=Math.max(0,Math.min(14,Number(saved.chainKills)||0)); state.chainCharges=Math.max(0,Math.min(99,Number(saved.chainCharges)||0)); state.screenClearCharges=Math.max(0,Math.min(3,Number(saved.screenClearCharges)||0));
-  }
- } catch(e){}
+ return FishJoyVault.read(KEY).then(function(saved){
+  if(saved){applyLocalState(saved);return;}
+  // Preserve the previous browser-wide guest key as a one-time migration source.
+  return FishJoyVault.read("fishjoy_progress_v1").then(function(legacy){
+   if(legacy){applyLocalState(legacy);return FishJoyVault.write(KEY,legacy);}
+  });
+ });
 }
 var cloudUser=null, cloudReady=false, cloudSaveTimer=null, cloudSaveDirty=false, cloudSaveInFlight=false, cloudSaveVersion=0, lastCloudSyncNoticeAt=0, accountModal=null, accountMode="login";
 function exportSave(){
@@ -50,18 +53,17 @@ function exportSave(){
  return copy;
 }
 function exportGuestSave(){
- try {
-  var guest=JSON.parse(localStorage.getItem(KEY)||"null");
-  if(guest&&typeof guest==="object")return guest;
- } catch(e){}
- return exportSave();
+ return FishJoyVault.read(KEY).then(function(guest){
+  return guest&&typeof guest==="object"?guest:exportSave();
+ });
 }
 function restoreGuestSave(){
  cloudUser=null;cloudReady=true;updateOnlineCount();
- loadState();
- if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
- if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
- saveState();refresh();setAccountLabel();
+ loadState().then(function(){
+  if(game.player&&state.coins!==null)game.player.updateCoin(state.coins,false);
+  if(game.player&&game.player.cannon)game.player.cannon.setPower(state.cannonLevel,false);
+  saveState();refresh();setAccountLabel();
+ }).catch(function(){notice("本地存档解密失败，已保护原存档，请勿清理浏览器数据");});
 }
 function flushCloudSave(useKeepalive){
   if(!cloudUser||!cloudReady||!cloudSaveDirty||cloudSaveInFlight)return;
@@ -103,12 +105,19 @@ function flushCloudSave(useKeepalive){
  // Best-effort final upload when the page is backgrounded or closed.
  document.addEventListener("visibilitychange",function(){if(document.visibilityState==="hidden")flushCloudSave(true);});
  window.addEventListener("pagehide",function(){flushCloudSave(true);});
+var localWriteQueue=Promise.resolve(),localWriteVersion=0;
 function saveState(){
  try {
   if(game.player)state.coins=game.player.coin;
-  localStorage.setItem(cloudUser?("fishjoy_account_cache_"+cloudUser.id):KEY,JSON.stringify(state));
+  var snapshot=JSON.parse(JSON.stringify(state));
+  var storageKey=cloudUser?("fishjoy_account_cache_"+cloudUser.id):KEY;
+  var version=++localWriteVersion;
+  localWriteQueue=localWriteQueue.then(function(){return FishJoyVault.write(storageKey,snapshot);}).catch(function(err){
+   console.error("Fish Joy local save encryption failed:",err);
+   if(version===localWriteVersion)notice("本地加密存档写入失败，请勿清理浏览器数据");
+  });
   scheduleCloudSave();
- } catch(e){}
+ } catch(e){console.error("Fish Joy save snapshot failed:",e);}
 }
 function apiRequest(path,body){
  var controller=typeof AbortController!=="undefined"?new AbortController():null;
@@ -281,7 +290,7 @@ function showAccountModal(){
   e.preventDefault();error.textContent="正在处理...";
   if(accountMode==="register"&&cloudUser){error.textContent="请先退出当前账号，再注册新账号";return;}
   var payload={username:nameInput.value,password:passInput.value};
-  var action=accountMode==="register"?apiRequest("/api/register",{username:payload.username,password:payload.password,guestSave:exportGuestSave()}):apiRequest("/api/login",payload);
+  var action=accountMode==="register"?exportGuestSave().then(function(guestSave){return apiRequest("/api/register",{username:payload.username,password:payload.password,guestSave:guestSave});}):apiRequest("/api/login",payload);
   action.then(function(result){
    cloudUser=result.user;setAccountLabel();sendHeartbeat();
    if(accountMode==="register"){
@@ -517,41 +526,49 @@ function triggerChainBlast(x,y,power){
  try{var effect=new Q.Bitmap(ns.R.webs[Math.max(0,Math.min(6,power-1))]);effect.x=x;effect.y=y;effect.scaleX=effect.scaleY=1.15;effect.alpha=1;game.stage.addChild(effect);Q.Tween.to(effect,{scaleX:2.8,scaleY:2.8,alpha:0},{time:520,onComplete:function(){if(effect.parent)effect.parent.removeChild(effect);}});}catch(e){}
  notice("⚡ 闪电连锁！巨型电网覆盖范围，命中 "+hit+" 条鱼");
 }
+var initStarted=false;
 function init(){
- loadState();addFishVariants();addProgressUI();resizeGame();
- if(game.player){
-  if(state.coins!==null)game.player.updateCoin(state.coins,false);
-  else {state.coins=game.player.coin;saveState();}
-  if(!originalUpdateCoin){originalUpdateCoin=game.player.updateCoin;game.player.updateCoin=function(coin,increase){
-   originalUpdateCoin.call(this,coin,increase);
-   state.coins=this.coin;saveState();
+ if(initStarted)return;
+ initStarted=true;
+ addFishVariants();addProgressUI();resizeGame();
+ loadState().then(function(){
+  if(game.player){
+   if(state.coins!==null)game.player.updateCoin(state.coins,false);
+   else {state.coins=game.player.coin;saveState();}
+   if(!originalUpdateCoin){originalUpdateCoin=game.player.updateCoin;game.player.updateCoin=function(coin,increase){
+    originalUpdateCoin.call(this,coin,increase);
+    state.coins=this.coin;saveState();
+   };}
+   game.player.cannon.setPower(state.cannonLevel,false);
+   restoreCloudSession();
+   if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
+    if(weaponMode!==2){return originalFire.call(this,point);}
+    var spread=game.width*.055;originalFire.call(this,point);
+    if(this.coin>=(this.cannon.power===7?10:Math.ceil(this.cannon.power*1.25))*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
+   };}
+  }
+  if(!originalBulletCheckCollision&&ns.Bullet&&ns.Bullet.prototype){originalBulletCheckCollision=ns.Bullet.prototype.checkCollision;ns.Bullet.prototype.checkCollision=function(){var x=this.x,y=this.y,power=this.power,hit=originalBulletCheckCollision.apply(this,arguments);if(hit&&state.chainCharges>0){state.chainCharges--;saveState();triggerChainBlast(x,y,power);refresh();}return hit;};}
+  if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
+   var value=fish.coin;
+   if(Date.now()<state.rewardBoostUntil)fish.coin=value*2;
+   originalCapture.call(this,fish);
+   fish.coin=value;
+   var index=ns.R.fishTypes.indexOf(fish.type);if(index<1)index=1;
+   state.catches[index]=(state.catches[index]||0)+1;
+   state.chainKills++;if(state.chainKills>=15){state.chainKills=0;state.chainCharges=Math.min(99,state.chainCharges+1);notice("连锁效果已充能！当前 "+state.chainCharges+" 次，下一次命中触发范围爆炸");}
+   if(state.screenClearCharges<3&&Math.random()<0.05){state.screenClearCharges++;notice("获得全屏清理技能！当前 "+state.screenClearCharges+"/3 次");}
+   updateAchievements();saveState();refresh();
   };}
-  game.player.cannon.setPower(state.cannonLevel,false);
-  restoreCloudSession();
-  if(!originalFire){originalFire=game.player.fire;game.player.fire=function(point){
-   if(weaponMode!==2){return originalFire.call(this,point);}
-   var spread=game.width*.055;originalFire.call(this,point);
-   if(this.coin>=(this.cannon.power===7?10:Math.ceil(this.cannon.power*1.25))*2){originalFire.call(this,{x:point.x-spread,y:point.y});originalFire.call(this,{x:point.x+spread,y:point.y});}
-  };}
- }
- if(!originalBulletCheckCollision&&ns.Bullet&&ns.Bullet.prototype){originalBulletCheckCollision=ns.Bullet.prototype.checkCollision;ns.Bullet.prototype.checkCollision=function(){var x=this.x,y=this.y,power=this.power,hit=originalBulletCheckCollision.apply(this,arguments);if(hit&&state.chainCharges>0){state.chainCharges--;saveState();triggerChainBlast(x,y,power);refresh();}return hit;};}
- if(!originalCapture){originalCapture=game.player.captureFish;game.player.captureFish=function(fish){
-  var value=fish.coin;
-  if(Date.now()<state.rewardBoostUntil)fish.coin=value*2;
-  originalCapture.call(this,fish);
-  fish.coin=value;
-  var index=ns.R.fishTypes.indexOf(fish.type);if(index<1)index=1;
-  state.catches[index]=(state.catches[index]||0)+1;
-  state.chainKills++;if(state.chainKills>=15){state.chainKills=0;state.chainCharges=Math.min(99,state.chainCharges+1);notice("连锁效果已充能！当前 "+state.chainCharges+" 次，下一次命中触发范围爆炸");}
-  if(state.screenClearCharges<3&&Math.random()<0.05){state.screenClearCharges++;notice("获得全屏清理技能！当前 "+state.screenClearCharges+"/3 次");}
-  updateAchievements();saveState();refresh();
- };}
+ }).catch(function(err){
+  console.error("Fish Joy local save could not be opened:",err);
+  notice("本地存档无法解密，已停止覆盖存档；请勿清理浏览器数据");
+ });
 }
 originalUpdate=game.update;
 game.update=function(timeInfo){
  originalUpdate.call(this,timeInfo);
  tick++;
- if(!overlay&&this.player)init();
+ if(!overlay&&this.player&&!initStarted)init();
  if(tick-lastEvent>game.fps*45){lastEvent=tick;triggerEvent();}
  if(game.player&&tick%30===0)refresh();
 };
