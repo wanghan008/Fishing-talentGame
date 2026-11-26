@@ -1,112 +1,69 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="robots" content="noindex,nofollow">
-<title>Fish Joy 管理控制台</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow"><title>Fish Joy 管理控制台</title>
 <style>
-:root{color-scheme:dark;--bg:#0b1220;--panel:#121d30;--line:#26364e;--muted:#91a2bb;--text:#edf4ff;--blue:#55a8ff;--green:#42d6a0;--red:#ff7777}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 20% 0%,#172c49 0,transparent 42%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
-button,input,textarea{font:inherit}button{border:0;border-radius:10px;padding:10px 15px;background:var(--blue);color:#061326;font-weight:700;cursor:pointer}button.secondary{background:#26364e;color:var(--text)}button:disabled{opacity:.55;cursor:wait}
-header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px max(18px,calc((100vw - 1180px)/2));border-bottom:1px solid var(--line);background:#0b1220cc;position:sticky;top:0;backdrop-filter:blur(14px);z-index:2}
-.brand{font-size:18px;font-weight:800;letter-spacing:.3px}.brand span{color:var(--blue)}.wrap{max-width:1180px;margin:28px auto;padding:0 18px}
-.panel{background:linear-gradient(145deg,#142239,#101a2b);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 16px 50px #0003}
-.login{max-width:420px;margin:9vh auto}.login h1{margin:0 0 6px;font-size:24px}.muted{color:var(--muted)}label{display:block;color:#c4d2e5;font-size:13px;margin:15px 0 7px}
-input,textarea{width:100%;border:1px solid var(--line);background:#091321;color:var(--text);border-radius:10px;padding:12px;outline:none}input:focus,textarea:focus{border-color:var(--blue)}.row{display:flex;gap:10px;align-items:center}.row>*{min-width:0}.toolbar{display:flex;gap:10px;align-items:center;margin:18px 0;flex-wrap:wrap}.toolbar input{max-width:360px}
-.stats{display:flex;gap:12px;flex-wrap:wrap}.stat{background:#0c1728;border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:140px}.stat b{display:block;font-size:22px}.stat small{color:var(--muted)}
-.layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:16px;margin-top:16px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:520px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:12px;color:var(--muted);font-weight:600}td{font-size:14px}.playername{font-weight:700}.id{font-size:11px;color:var(--muted);max-width:170px;overflow:hidden;text-overflow:ellipsis}
-.editor h2,.listhead h2{font-size:17px;margin:0}.listhead{display:flex;align-items:center;justify-content:space-between;gap:12px}.editor textarea{min-height:360px;resize:vertical;font:13px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}.editor-actions{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
-.notice{padding:10px 12px;border-radius:10px;background:#13243a;color:#b9d7f7;margin-top:12px;font-size:13px}.notice.error{background:#351c27;color:#ffb4b4}.notice.ok{background:#123328;color:#a6f2d5}
-.empty{padding:28px;text-align:center;color:var(--muted)}.hidden{display:none!important}
-@media(max-width:800px){.layout{grid-template-columns:1fr}.wrap{margin:18px auto}.editor textarea{min-height:280px}header{padding:14px 18px}}
-</style>
-</head>
+:root{color-scheme:dark;--bg:#09111e;--panel:#111e30;--panel2:#0c1727;--line:#263950;--muted:#91a5bf;--text:#edf5ff;--blue:#62b0ff;--green:#48d6a0;--red:#ff7777;--gold:#ffc76a}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 12% 0%,#183557 0,transparent 40%),var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}button,input,textarea{font:inherit}button{border:0;border-radius:10px;padding:10px 15px;background:var(--blue);color:#061426;font-weight:750;cursor:pointer}button.secondary{background:#263950;color:var(--text)}button.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}button:disabled{opacity:.55;cursor:wait}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px max(18px,calc((100vw - 1240px)/2));border-bottom:1px solid var(--line);background:#09111ee8;position:sticky;top:0;backdrop-filter:blur(14px);z-index:5}.brand{font-size:18px;font-weight:850}.brand em{font-style:normal;color:var(--blue)}.wrap{max-width:1240px;margin:26px auto;padding:0 18px}.panel{background:linear-gradient(145deg,#14243a,#101a2a);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 14px 42px #0003}.login{max-width:420px;margin:9vh auto}.hidden{display:none!important}.muted{color:var(--muted)}label{display:block;color:#bfd0e5;font-size:13px;margin:12px 0 6px}input,textarea{width:100%;border:1px solid var(--line);background:#081321;color:var(--text);border-radius:10px;padding:11px;outline:none;min-width:0}input:focus,textarea:focus{border-color:var(--blue)}.row{display:flex;gap:10px;align-items:center}.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin:18px 0}.toolbar input{max-width:370px}.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.stat{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:14px}.stat small{display:block;color:var(--muted)}.stat b{font-size:23px;display:block;overflow-wrap:anywhere}.layout{display:grid;grid-template-columns:minmax(290px,.85fr) minmax(0,1.45fr);gap:15px}.tablewrap{overflow:auto}table{border-collapse:collapse;width:100%;min-width:460px}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid var(--line);white-space:nowrap}th{font-size:12px;color:var(--muted)}td{font-size:13px}.playername{font-weight:750}.id{font-size:10px;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis}.smallbtn{padding:7px 10px;font-size:12px}.sectionhead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:13px}.sectionhead h2{font-size:17px;margin:0}.selected{color:var(--blue);font-size:12px}.editgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.field{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px}.field label{margin:0 0 6px}.field input{padding:9px}.field.full{grid-column:1/-1}.subhead{font-weight:750;margin:18px 0 9px}.chips{display:flex;gap:8px;flex-wrap:wrap}.chip{display:flex;align-items:center;gap:7px;background:#0b1727;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px}.chip input{width:auto;accent-color:var(--green)}.catchgrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.catchgrid .field{padding:8px}.catchgrid input{padding:7px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:15px}.notice{padding:10px 12px;border-radius:10px;background:#142b43;color:#c3e0ff;margin-top:12px;font-size:13px}.notice.error{background:#351c27;color:#ffb4b4}.notice.ok{background:#123328;color:#a6f2d5}.editor textarea{min-height:280px;resize:vertical;font:12px/1.5 ui-monospace,Consolas,monospace}.empty{padding:24px;text-align:center;color:var(--muted)}.danger{color:var(--gold)}.tabs{display:flex;gap:8px;margin:16px 0}.tab.active{background:var(--blue);color:#061426}.tab{background:#24374f;color:#dceaff}.hint{font-size:12px;color:var(--muted);margin-top:7px}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.wrap{margin:16px auto;padding:0 12px}.panel{padding:13px}.catchgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.editgrid{gap:8px}.stat b{font-size:19px}header{padding:12px}}
+</style></head>
 <body>
-<header><div class="brand"><span>FISH</span> JOY <span style="color:#91a2bb;font-weight:500">/ 管理控制台</span></div><div class="row"><span id="adminState" class="muted" style="font-size:12px">未登录</span><button id="logoutBtn" class="secondary hidden">退出登录</button></div></header>
+<header><div class="brand"><em>FISH</em> JOY <span class="muted" style="font-weight:500">/ 管理控制台</span></div><div class="row"><span id="adminState" class="muted" style="font-size:12px">未登录</span><button id="logoutBtn" class="secondary hidden">退出</button></div></header>
 <main class="wrap">
-<section id="loginPanel" class="panel login">
-<h1>管理员登录</h1><div class="muted">独立管理入口 · 仅授权管理员可访问</div>
-<form id="loginForm"><label for="password">管理员密码</label><input id="password" type="password" autocomplete="current-password" placeholder="输入 Cloudflare 中设置的管理员密码" required><div style="margin-top:16px"><button id="loginBtn" type="submit" style="width:100%">安全登录</button></div></form>
-<div id="loginNotice" class="notice hidden"></div>
-</section>
+<section id="loginPanel" class="panel login"><h1 style="margin:0 0 5px">管理员登录</h1><div class="muted">独立管理入口 · 仅授权管理员可访问</div><form id="loginForm"><label for="password">管理员密码</label><input id="password" type="password" autocomplete="current-password" placeholder="输入管理员密码" required><button id="loginBtn" style="width:100%;margin-top:15px">安全登录</button></form><div id="loginNotice" class="notice hidden"></div></section>
 <section id="dashboard" class="hidden">
-<div class="stats"><div class="stat"><b id="playerCount">—</b><small>当前查询结果</small></div><div class="stat"><b>Cloudflare D1</b><small>在线玩家数据库</small></div><div class="stat"><b>只编辑存档</b><small>不触碰密码与登录会话</small></div></div>
-<div class="toolbar"><input id="searchInput" type="search" placeholder="搜索玩家昵称或账号 ID"><button id="searchBtn">搜索</button><button id="refreshBtn" class="secondary">刷新列表</button></div>
-<div class="layout">
-<section class="panel"><div class="listhead"><h2>玩家列表</h2><span class="muted" style="font-size:12px">最多显示 200 个账号</span></div><div class="tablewrap"><table><thead><tr><th>玩家</th><th>金币</th><th>炮台等级</th><th>存档更新时间</th><th>操作</th></tr></thead><tbody id="playersBody"><tr><td colspan="5" class="empty">正在读取玩家数据…</td></tr></tbody></table></div></section>
-<section class="panel editor"><div class="listhead"><h2>玩家存档编辑</h2><span id="selectedName" class="muted" style="font-size:12px">尚未选择玩家</span></div>
-<div id="editorHint" class="notice">请先从左侧选择一个玩家。编辑器会载入该玩家完整 JSON 存档。</div>
-<div id="editorArea" class="hidden"><div class="muted" id="playerMeta" style="font-size:12px;margin:12px 0"></div><label for="saveJson">完整存档 JSON</label><textarea id="saveJson" spellcheck="false"></textarea><div class="editor-actions"><button id="saveBtn">保存修改</button><button id="reloadBtn" class="secondary">重新载入</button></div><div class="notice">保存前请确认 JSON 格式正确。只更新该玩家的游戏存档，不会修改账号密码或登录会话。</div></div>
-<div id="editorNotice" class="notice hidden"></div>
-</section>
+<div class="stats">
+<div class="stat"><small>当前查询玩家</small><b id="playerCount">—</b></div><div class="stat"><small>当前选中玩家</small><b id="selectedPlayerStat">—</b></div><div class="stat"><small>金币余额</small><b id="coinStat">—</b></div><div class="stat"><small>存档状态</small><b id="saveState" style="font-size:17px">等待选择</b></div>
 </div>
-</section>
-</main>
+<div class="toolbar"><input id="searchInput" type="search" placeholder="搜索玩家昵称或账号 ID"><button id="searchBtn">搜索玩家</button><button id="refreshBtn" class="secondary">刷新列表</button></div>
+<div class="layout">
+<section class="panel"><div class="sectionhead"><h2>玩家列表</h2><span class="muted" style="font-size:11px">最多 200 个</span></div><div class="tablewrap"><table><thead><tr><th>玩家</th><th>金币</th><th>等级</th><th></th></tr></thead><tbody id="playersBody"><tr><td colspan="4" class="empty">正在读取…</td></tr></tbody></table></div></section>
+<section class="panel">
+<div class="sectionhead"><h2>玩家资料编辑</h2><span id="selectedName" class="selected">尚未选择玩家</span></div>
+<div id="editorHint" class="notice">请从左侧选择玩家。可视化编辑会保留未显示的其他存档字段。</div>
+<div id="editorArea" class="hidden">
+<div id="playerMeta" class="hint"></div>
+<div class="subhead">核心数值</div><div class="editgrid">
+<div class="field"><label for="f-coins">金币余额</label><input id="f-coins" type="number" min="0" max="9999999999" step="1"></div>
+<div class="field"><label for="f-cannonLevel">炮台等级</label><input id="f-cannonLevel" type="number" min="0" max="999" step="1"></div>
+<div class="field"><label for="f-bossWins">Boss 胜利次数</label><input id="f-bossWins" type="number" min="0" step="1"></div>
+<div class="field"><label for="f-eventCount">事件触发次数</label><input id="f-eventCount" type="number" min="0" step="1"></div>
+<div class="field"><label for="f-chainKills">连锁击杀计数</label><input id="f-chainKills" type="number" min="0" step="1"></div>
+<div class="field"><label for="f-challengeBossHp">挑战 Boss 剩余血量</label><input id="f-challengeBossHp" type="number" min="0" step="1"></div>
+<div class="field full"><label for="f-rewardBoostUntil">奖励加成到期时间（毫秒时间戳）</label><input id="f-rewardBoostUntil" type="number" min="0" step="1"><div class="hint" id="boostReadable"></div></div>
+</div>
+<div class="subhead">成就状态</div><div id="achievements" class="chips"></div>
+<div class="subhead">各类鱼捕获数量</div><div id="catches" class="catchgrid"></div>
+<div class="actions"><button id="saveVisualBtn">保存可视化修改</button><button id="reloadBtn" class="secondary">重新载入</button><button id="jsonToggle" class="ghost">高级 JSON 编辑</button></div>
+<div id="editorNotice" class="notice hidden"></div>
+<div id="jsonPanel" class="hidden" style="margin-top:16px"><label for="saveJson">完整存档 JSON（高级模式）</label><textarea id="saveJson" spellcheck="false"></textarea><div class="actions"><button id="saveJsonBtn">保存 JSON</button><button id="syncJsonBtn" class="secondary">用可视化数据覆盖 JSON</button></div></div>
+<div class="notice">安全提示：保存只更新该玩家游戏存档，不修改账号密码或登录会话。请先让玩家退出游戏，避免旧存档覆盖新数据。</div>
+</div></section></div></section></main>
 <script>
-const $ = id => document.getElementById(id);
-let selectedId = "";
-async function api(path, options={}) {
-  const response = await fetch(path, { credentials:"same-origin", ...options, headers:{"Content-Type":"application/json",...(options.headers||{})} });
-  const data = await response.json().catch(()=>({error:"服务器返回了无法识别的数据"}));
-  if (!response.ok) throw new Error(data.error || ("请求失败："+response.status));
-  return data;
-}
-function notice(el, message, type="") { el.textContent=message; el.className="notice"+(type?" "+type:""); el.classList.remove("hidden"); }
-function dateText(value) { if(!value)return "—"; const d=new Date(Number(value)*1000); return Number.isNaN(d.getTime())?"—":d.toLocaleString(); }
-function cell(text, className="") { const td=document.createElement("td"); td.textContent=text; if(className)td.className=className; return td; }
-async function loadPlayers() {
-  const q=$("searchInput").value.trim();
-  $("playersBody").replaceChildren();
-  const loading=document.createElement("tr"); const loadingCell=cell("正在读取…"); loadingCell.colSpan=5; loadingCell.className="empty"; loading.append(loadingCell); $("playersBody").append(loading);
-  try {
-    const data=await api("/api/admin/players?q="+encodeURIComponent(q));
-    $("playerCount").textContent=data.count;
-    $("playersBody").replaceChildren();
-    if(!data.players.length){const tr=document.createElement("tr");const td=cell("没有找到玩家");td.colSpan=5;td.className="empty";tr.append(td);$("playersBody").append(tr);return;}
-    for(const p of data.players){
-      const tr=document.createElement("tr");
-      const name=document.createElement("td");const strong=document.createElement("div");strong.className="playername";strong.textContent=p.username;const id=document.createElement("div");id.className="id";id.textContent=p.id;name.append(strong,id);tr.append(name);
-      tr.append(cell(Number(p.coins).toLocaleString()),cell(String(p.cannonLevel||0)),cell(dateText(p.updatedAt)));
-      const action=cell("");const btn=document.createElement("button");btn.textContent="编辑";btn.addEventListener("click",()=>loadPlayer(p.id));action.append(btn);tr.append(action);$("playersBody").append(tr);
-    }
-  } catch(e) { const tr=document.createElement("tr");const td=cell(e.message);td.colSpan=5;td.className="empty";tr.append(td);$("playersBody").append(tr); }
-}
-async function loadPlayer(id) {
-  try {
-    const data=await api("/api/admin/player?id="+encodeURIComponent(id));
-    selectedId=data.player.id;$("selectedName").textContent=data.player.username;
-    $("playerMeta").textContent="账号 ID："+data.player.id+" · 注册时间："+dateText(data.player.createdAt)+" · 存档更新时间："+dateText(data.player.updatedAt);
-    $("saveJson").value=JSON.stringify(data.save,null,2);
-    $("editorHint").classList.add("hidden");$("editorArea").classList.remove("hidden");$("editorNotice").classList.add("hidden");
-  } catch(e) { notice($("editorNotice"),e.message,"error"); }
-}
-$("loginForm").addEventListener("submit",async e=>{
-  e.preventDefault();$("loginBtn").disabled=true;
-  try { await api("/api/admin/login",{method:"POST",body:JSON.stringify({password:$("password").value})});$("password").value="";await showDashboard(); }
-  catch(err){notice($("loginNotice"),err.message,"error");}
-  finally{$("loginBtn").disabled=false;}
-});
-async function showDashboard(){
-  $("loginPanel").classList.add("hidden");$("dashboard").classList.remove("hidden");$("logoutBtn").classList.remove("hidden");$("adminState").textContent="管理员已验证";await loadPlayers();
-}
-async function checkSession(){
-  try{await api("/api/admin/status");await showDashboard();}
-  catch(_){$("loginPanel").classList.remove("hidden");$("dashboard").classList.add("hidden");$("logoutBtn").classList.add("hidden");$("adminState").textContent="未登录";}
-}
-$("searchBtn").addEventListener("click",loadPlayers);$("refreshBtn").addEventListener("click",loadPlayers);
-$("searchInput").addEventListener("keydown",e=>{if(e.key==="Enter")loadPlayers();});
-$("reloadBtn").addEventListener("click",()=>selectedId&&loadPlayer(selectedId));
-$("saveBtn").addEventListener("click",async()=>{
-  if(!selectedId)return;
-  let save;try{save=JSON.parse($("saveJson").value);}catch(e){notice($("editorNotice"),"JSON 格式错误："+e.message,"error");return;}
-  $("saveBtn").disabled=true;
-  try{await api("/api/admin/player",{method:"PUT",body:JSON.stringify({id:selectedId,save})});notice($("editorNotice"),"保存成功。数据库存档已更新。","ok");await loadPlayers();}
-  catch(e){notice($("editorNotice"),e.message,"error");}
-  finally{$("saveBtn").disabled=false;}
-});
-$("logoutBtn").addEventListener("click",async()=>{try{await api("/api/admin/logout",{method:"POST"});}catch(_){}location.reload();});
-checkSession();
-</script>
-</body>
-</html>
+const $=id=>document.getElementById(id);let selectedId="",currentSave=null,currentPlayer=null;
+const achievementLabels={firstCatch:"首次捕鱼",fisher50:"捕鱼达到 50 次",fisher200:"捕鱼达到 200 次",boss1:"击败第一个 Boss"};
+async function api(path,options={}){const r=await fetch(path,{credentials:"same-origin",...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({error:"服务器返回了无法识别的数据"}));if(!r.ok)throw new Error(d.error||("请求失败："+r.status));return d}
+function notice(el,msg,type=""){el.textContent=msg;el.className="notice"+(type?" "+type:"");el.classList.remove("hidden")}
+function dateText(v){if(!v)return"—";const d=new Date(Number(v)*1000);return Number.isNaN(d.getTime())?"—":d.toLocaleString()}
+function safeInt(v,label,max=9999999999){const n=Number(v);if(!Number.isSafeInteger(n)||n<0||n>max)throw new Error(label+"必须是 0 到 "+max+" 之间的整数");return n}
+function setField(id,value){$(id).value=value??0}
+function renderEditor(data){currentPlayer=data.player;currentSave=structuredClone(data.save||{});selectedId=data.player.id;$("selectedName").textContent=data.player.username;$("selectedPlayerStat").textContent=data.player.username;$("coinStat").textContent=(Number(currentSave.coins)||0).toLocaleString();$("saveState").textContent="已载入";$("playerMeta").textContent="账号 ID："+data.player.id+" · 注册："+dateText(data.player.createdAt)+" · 存档更新："+dateText(data.player.updatedAt);
+setField("f-coins",currentSave.coins);setField("f-cannonLevel",currentSave.cannonLevel);setField("f-bossWins",currentSave.bossWins);setField("f-eventCount",currentSave.eventCount);setField("f-chainKills",currentSave.chainKills);setField("f-challengeBossHp",currentSave.challengeBossHp);setField("f-rewardBoostUntil",currentSave.rewardBoostUntil);updateBoost();
+$("achievements").replaceChildren();const ach=currentSave.achievements&&typeof currentSave.achievements==="object"?currentSave.achievements:{};for(const [key,val] of Object.entries({...Object.fromEntries(Object.keys(achievementLabels).map(k=>[k,false])),...ach})){const label=document.createElement("label");label.className="chip";const cb=document.createElement("input");cb.type="checkbox";cb.checked=!!val;cb.dataset.key=key;const span=document.createElement("span");span.textContent=achievementLabels[key]||key;label.append(cb,span);$("achievements").append(label)}
+$("catches").replaceChildren();const catches=currentSave.catches&&typeof currentSave.catches==="object"?currentSave.catches:{};const keys=[...new Set([...Array.from({length:15},(_,i)=>String(i+1)),...Object.keys(catches)])].sort((a,b)=>Number(a)-Number(b));for(const k of keys){const wrap=document.createElement("div");wrap.className="field";const label=document.createElement("label");label.textContent="鱼类 "+k;const input=document.createElement("input");input.type="number";input.min="0";input.step="1";input.dataset.fish=k;input.value=catches[k]??0;wrap.append(label,input);$("catches").append(wrap)}
+$("saveJson").value=JSON.stringify(currentSave,null,2);$("editorHint").classList.add("hidden");$("editorArea").classList.remove("hidden");$("editorNotice").classList.add("hidden");$("jsonPanel").classList.add("hidden")}
+function updateBoost(){const v=Number($("f-rewardBoostUntil").value);$("boostReadable").textContent=v?("对应时间："+new Date(v).toLocaleString()):"未设置奖励加成到期时间"}
+async function loadPlayers(){const q=$("searchInput").value.trim();$("playersBody").replaceChildren();const loading=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;td.className="empty";td.textContent="正在读取…";loading.append(td);$("playersBody").append(loading);try{const d=await api("/api/admin/players?q="+encodeURIComponent(q));$("playerCount").textContent=d.count;$("playersBody").replaceChildren();if(!d.players.length){const tr=document.createElement("tr"),c=document.createElement("td");c.colSpan=4;c.className="empty";c.textContent="没有找到玩家";tr.append(c);$("playersBody").append(tr);return}for(const p of d.players){const tr=document.createElement("tr"),name=document.createElement("td"),strong=document.createElement("div"),id=document.createElement("div");strong.className="playername";strong.textContent=p.username;id.className="id";id.textContent=p.id;name.append(strong,id);tr.append(name);for(const v of [Number(p.coins).toLocaleString(),String(p.cannonLevel||0)]){const c=document.createElement("td");c.textContent=v;tr.append(c)}const action=document.createElement("td"),btn=document.createElement("button");btn.className="smallbtn";btn.textContent="编辑";btn.addEventListener("click",()=>loadPlayer(p.id));action.append(btn);tr.append(action);$("playersBody").append(tr)}}catch(e){const tr=document.createElement("tr"),c=document.createElement("td");c.colSpan=4;c.className="empty";c.textContent=e.message;tr.append(c);$("playersBody").append(tr)}}
+async function loadPlayer(id){try{const d=await api("/api/admin/player?id="+encodeURIComponent(id));renderEditor(d)}catch(e){notice($("editorNotice"),e.message,"error")}}
+function collectVisual(){if(!currentSave)throw new Error("请先选择玩家");const s=structuredClone(currentSave);s.coins=safeInt($("f-coins").value,"金币");s.cannonLevel=safeInt($("f-cannonLevel").value,"炮台等级",999);s.bossWins=safeInt($("f-bossWins").value,"Boss 胜利次数");s.eventCount=safeInt($("f-eventCount").value,"事件次数");s.chainKills=safeInt($("f-chainKills").value,"连锁击杀计数");s.challengeBossHp=safeInt($("f-challengeBossHp").value,"挑战 Boss 血量");s.rewardBoostUntil=safeInt($("f-rewardBoostUntil").value,"奖励加成时间戳",Number.MAX_SAFE_INTEGER);s.achievements=s.achievements&&typeof s.achievements==="object"?s.achievements:{};document.querySelectorAll("#achievements input").forEach(cb=>s.achievements[cb.dataset.key]=cb.checked);s.catches=s.catches&&typeof s.catches==="object"?s.catches:{};document.querySelectorAll("#catches input").forEach(i=>s.catches[i.dataset.fish]=safeInt(i.value,"鱼类 "+i.dataset.fish+" 捕获数"));return s}
+async function saveSave(save,successText){$("saveVisualBtn").disabled=true;$("saveJsonBtn").disabled=true;try{await api("/api/admin/player",{method:"PUT",body:JSON.stringify({id:selectedId,save})});currentSave=structuredClone(save);$("coinStat").textContent=(Number(save.coins)||0).toLocaleString();$("saveState").textContent="已保存";$("saveJson").value=JSON.stringify(save,null,2);notice($("editorNotice"),successText,"ok");await loadPlayers()}catch(e){notice($("editorNotice"),e.message,"error")}finally{$("saveVisualBtn").disabled=false;$("saveJsonBtn").disabled=false}}
+$("loginForm").addEventListener("submit",async e=>{e.preventDefault();$("loginBtn").disabled=true;try{await api("/api/admin/login",{method:"POST",body:JSON.stringify({password:$("password").value})});$("password").value="";$("loginPanel").classList.add("hidden");$("dashboard").classList.remove("hidden");$("logoutBtn").classList.remove("hidden");$("adminState").textContent="管理员已验证";await loadPlayers()}catch(err){notice($("loginNotice"),err.message,"error")}finally{$("loginBtn").disabled=false}});
+async function checkSession(){try{await api("/api/admin/status");$("loginPanel").classList.add("hidden");$("dashboard").classList.remove("hidden");$("logoutBtn").classList.remove("hidden");$("adminState").textContent="管理员已验证";await loadPlayers()}catch(_){$("loginPanel").classList.remove("hidden")}}
+$("searchBtn").addEventListener("click",loadPlayers);$("refreshBtn").addEventListener("click",loadPlayers);$("searchInput").addEventListener("keydown",e=>{if(e.key==="Enter")loadPlayers()});$("reloadBtn").addEventListener("click",()=>selectedId&&loadPlayer(selectedId));$("f-rewardBoostUntil").addEventListener("input",updateBoost);
+$("saveVisualBtn").addEventListener("click",()=>{try{saveSave(collectVisual(),"可视化修改已保存，D1 存档已更新。")}catch(e){notice($("editorNotice"),e.message,"error")}});
+$("jsonToggle").addEventListener("click",()=>$("jsonPanel").classList.toggle("hidden"));$("saveJsonBtn").addEventListener("click",()=>{try{const s=JSON.parse($("saveJson").value);if(!s||typeof s!=="object"||Array.isArray(s))throw new Error("存档必须是 JSON 对象");safeInt(s.coins,"金币");saveSave(s,"高级 JSON 存档已保存。")}catch(e){notice($("editorNotice"),"无法保存："+e.message,"error")}});
+$("syncJsonBtn").addEventListener("click",()=>{try{const s=collectVisual();$("saveJson").value=JSON.stringify(s,null,2);notice($("editorNotice"),"已将可视化表单同步到 JSON 编辑框；尚未保存。")}catch(e){notice($("editorNotice"),e.message,"error")}});
+$("logoutBtn").addEventListener("click",async()=>{try{await api("/api/admin/logout",{method:"POST"})}catch(_){}location.reload()});checkSession();
+</script></body></html>
