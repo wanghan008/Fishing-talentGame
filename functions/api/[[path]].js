@@ -423,7 +423,7 @@ async function handle(request, env) {
     if (path === "/api/admin/players" && method === "GET") {
       const q = String(url.searchParams.get("q") || "").trim().slice(0, 80);
       const rows = await env.DB.prepare(
-        "SELECT u.id,u.username,u.created_at,u.last_login_at,p.save_json,p.updated_at FROM users u LEFT JOIN player_saves p ON p.user_id=u.id WHERE (?='' OR u.username LIKE ? OR u.id LIKE ?) ORDER BY u.created_at DESC LIMIT 200"
+        "SELECT u.id,u.username,u.created_at,p.save_json,p.updated_at FROM users u LEFT JOIN player_saves p ON p.user_id=u.id WHERE (?='' OR u.username LIKE ? OR u.id LIKE ?) ORDER BY u.created_at DESC LIMIT 200"
       ).bind(q, `%${q}%`, `%${q}%`).all();
       const players = (rows.results || []).map(row => {
         let save = {};
@@ -454,7 +454,7 @@ async function handle(request, env) {
         return json({ error: "该玩家存档 JSON 已损坏，已阻止编辑" }, 409);
       }
       return json({
-        player: { id: row.id, username: row.username, createdAt: row.created_at, lastLoginAt: row.last_login_at || null, updatedAt: row.updated_at || null },
+        player: { id: row.id, username: row.username, createdAt: row.created_at, updatedAt: row.updated_at || null },
         save
       });
     }
