@@ -364,6 +364,121 @@ async function handle(request, env) {
     return json({ ok: true, updatedAt: now });
   }
 
+
+  // Admin console: independent password + short-lived server-side sessions.
+  async function ensureAdminSessionsTable() {
+    await env.DB.prepare("CREATE TABLE IF NOT EXISTS admin_sessions (token_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL)").run();
+    await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_admin_sessions_expiry ON admin_sessions(expires_at)").run();
+  }
+  async function currentAdmin() {
+    const token = cookieValue(request, "fishjoy_admin_session");
+    if (!token) return false;
+    const now = Math.floor(Date.now() / 1000);
+    const row = await env.DB.prepare("SELECT token_hash FROM admin_sessions WHERE token_hash=? AND expires_at>? LIMIT 1")
+      .bind(await sha256(token), now).first();
+    return !!row;
+  }
+  function adminCookie(value, maxAge) {
+    return value
+      ? `fishjoy_admin_session=${encodeURIComponent(value)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`
+      : "fishjoy_admin_session=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0";
+  }
+
+  if (path === "/api/admin/login" && method === "POST") {
+    if (!env.ADMIN_PASSWORD) return json({ error: "尚未设置管理员密码，请先在 Cloudflare Worker 设置 ADMIN_PASSWORD Secret" }, 503);
+    const body = await readJson(request);
+    if (typeof body.password !== "string" || body.password.length < 1 || body.password.length > 200) {
+      return json({ error: "请输入管理员密码" }, 400);
+    }
+    // Compare fixed-length digests rather than raw password strings.
+    const supplied = await sha256(body.password);
+    const expected = await sha256(String(env.ADMIN_PASSWORD));
+    if (supplied !== expected) return json({ error: "管理员密码错误" }, 401);
+    await ensureAdminSessionsTable();
+    const token = randomHex(32);
+    const now = Math.floor(Date.now() / 1000);
+    const expires = now + 12 * 60 * 60;
+    await env.DB.prepare("INSERT INTO admin_sessions (token_hash,created_at,expires_at) VALUES (?,?,?)")
+      .bind(await sha256(token), now, expires).run();
+    return json({ ok: true, expiresAt: expires }, 200, { "set-cookie": adminCookie(token, 12 * 60 * 60) });
+  }
+
+  if (path === "/api/admin/logout" && method === "POST") {
+    const token = cookieValue(request, "fishjoy_admin_session");
+    if (token) {
+      await ensureAdminSessionsTable();
+      await env.DB.prepare("DELETE FROM admin_sessions WHERE token_hash=?").bind(await sha256(token)).run();
+    }
+    return json({ ok: true }, 200, { "set-cookie": adminCookie("", 0) });
+  }
+
+  if (path.startsWith("/api/admin/") && path !== "/api/admin/login" && path !== "/api/admin/logout") {
+    await ensureAdminSessionsTable();
+    if (!(await currentAdmin())) return json({ error: "管理员登录已失效，请重新登录" }, 401);
+
+    if (path === "/api/admin/status" && method === "GET") {
+      return json({ ok: true });
+    }
+
+    if (path === "/api/admin/players" && method === "GET") {
+      const q = String(url.searchParams.get("q") || "").trim().slice(0, 80);
+      const rows = await env.DB.prepare(
+        "SELECT u.id,u.username,u.created_at,u.last_login_at,p.save_json,p.updated_at FROM users u LEFT JOIN player_saves p ON p.user_id=u.id WHERE (?='' OR u.username LIKE ? OR u.id LIKE ?) ORDER BY u.created_at DESC LIMIT 200"
+      ).bind(q, `%${q}%`, `%${q}%`).all();
+      const players = (rows.results || []).map(row => {
+        let save = {};
+        try { save = row.save_json ? JSON.parse(row.save_json) : {}; } catch (_) {}
+        return {
+          id: row.id,
+          username: row.username,
+          createdAt: row.created_at,
+          lastLoginAt: row.last_login_at || null,
+          updatedAt: row.updated_at || null,
+          coins: Number(save.coins) || 0,
+          cannonLevel: Number(save.cannonLevel) || 0,
+          saveExists: !!row.save_json
+        };
+      });
+      return json({ players, count: players.length });
+    }
+
+    if (path === "/api/admin/player" && method === "GET") {
+      const id = String(url.searchParams.get("id") || "").trim();
+      if (!id || id.length > 100) return json({ error: "缺少有效的玩家 ID" }, 400);
+      const row = await env.DB.prepare(
+        "SELECT u.id,u.username,u.created_at,u.last_login_at,p.save_json,p.updated_at FROM users u LEFT JOIN player_saves p ON p.user_id=u.id WHERE u.id=? LIMIT 1"
+      ).bind(id).first();
+      if (!row) return json({ error: "找不到该玩家" }, 404);
+      let save = {};
+      try { save = row.save_json ? JSON.parse(row.save_json) : {}; } catch (_) {
+        return json({ error: "该玩家存档 JSON 已损坏，已阻止编辑" }, 409);
+      }
+      return json({
+        player: { id: row.id, username: row.username, createdAt: row.created_at, lastLoginAt: row.last_login_at || null, updatedAt: row.updated_at || null },
+        save
+      });
+    }
+
+    if (path === "/api/admin/player" && method === "PUT") {
+      const body = await readJson(request);
+      const id = String(body.id || "").trim();
+      const save = body.save;
+      if (!id || id.length > 100) return json({ error: "缺少有效的玩家 ID" }, 400);
+      if (!save || typeof save !== "object" || Array.isArray(save)) return json({ error: "存档必须是 JSON 对象" }, 400);
+      if (!Number.isFinite(Number(save.coins)) || Number(save.coins) < 0 || Number(save.coins) > 999999) {
+        return json({ error: "金币必须是 0 到 999999 之间的数字" }, 400);
+      }
+      if (JSON.stringify(save).length > 30000) return json({ error: "存档内容过大" }, 413);
+      const exists = await env.DB.prepare("SELECT id FROM users WHERE id=? LIMIT 1").bind(id).first();
+      if (!exists) return json({ error: "找不到该玩家" }, 404);
+      const now = Math.floor(Date.now() / 1000);
+      await env.DB.prepare(
+        "INSERT INTO player_saves (user_id,save_json,updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET save_json=excluded.save_json,updated_at=excluded.updated_at"
+      ).bind(id, JSON.stringify(save), now).run();
+      return json({ ok: true, updatedAt: now });
+    }
+  }
+
   return json({ error: "接口不存在" }, 404);
   } catch (error) {
     console.error("FishJoy API error", {
