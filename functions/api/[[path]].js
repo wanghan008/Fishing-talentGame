@@ -127,6 +127,7 @@ async function handle(request, env) {
     stage = "password_hash";
     const hash = await passwordHash(password, salt, setStage);
     const now = Math.floor(Date.now() / 1000);
+    const saveVersion = Date.now();
     stage = "prepare_guest_save";
     let guestSave = body.guestSave && typeof body.guestSave === "object" ? body.guestSave : {};
     // Every newly registered account starts with exactly 10,000 coins.
@@ -138,7 +139,7 @@ async function handle(request, env) {
         env.DB.prepare("INSERT INTO users (id,username,username_norm,password_salt,password_hash,created_at) VALUES (?,?,?,?,?,?)")
           .bind(id, username, username.toLocaleLowerCase(), salt, hash, now),
         env.DB.prepare("INSERT INTO player_saves (user_id,save_json,updated_at) VALUES (?,?,?)")
-          .bind(id, JSON.stringify(guestSave), now)
+          .bind(id, JSON.stringify(guestSave), saveVersion)
       ]);
     } catch (error) {
       if (String(error).includes("UNIQUE")) return json({ error: "这个游戏昵称已被注册" }, 409);
@@ -161,7 +162,7 @@ async function handle(request, env) {
       now
     ).run();
     stage = "build_register_response";
-    return json({ user: { id, username }, save: guestSave }, 201, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
+    return json({ user: { id, username }, save: guestSave, updatedAt: saveVersion }, 201, { "set-cookie": cookieHeader(token, SESSION_DAYS * 86400) });
   }
 
   if (path === "/api/login" && method === "POST") {
@@ -351,17 +352,29 @@ async function handle(request, env) {
     stage = "save_put_read_body";
     const body = await readJson(request);
     if (!body.save || typeof body.save !== "object" || Array.isArray(body.save)) return json({ error: "存档格式不正确", code: stage, traceId }, 400);
+    if (!Object.prototype.hasOwnProperty.call(body, "expectedUpdatedAt")) {
+      return json({ error: "存档版本信息缺失，请重新读取云端存档", code: "SAVE_VERSION_REQUIRED" }, 428);
+    }
+    const expectedUpdatedAt = body.expectedUpdatedAt === null ? null : Number(body.expectedUpdatedAt);
+    if (expectedUpdatedAt !== null && (!Number.isSafeInteger(expectedUpdatedAt) || expectedUpdatedAt < 0)) {
+      return json({ error: "存档版本信息无效", code: "SAVE_VERSION_INVALID" }, 400);
+    }
     stage = "save_put_validate";
     const save = body.save;
     const coins = Number(save.coins);
     if (!Number.isFinite(coins) || coins < 0 || coins > 999999) return json({ error: "金币数据不合法", code: stage, traceId }, 400);
-    const now = Math.floor(Date.now() / 1000);
-    stage = "save_put_database_write";
-    await env.DB.prepare(
-      "INSERT INTO player_saves (user_id,save_json,updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET save_json=excluded.save_json,updated_at=excluded.updated_at"
-    ).bind(user.id, JSON.stringify(save), now).run();
+    const nextVersion = Math.max(Date.now(), (expectedUpdatedAt === null ? 0 : expectedUpdatedAt) + 1);
+    stage = "save_put_compare_and_swap";
+    const result = await env.DB.prepare(
+      "INSERT INTO player_saves (user_id,save_json,updated_at) VALUES (?,?,?) ON CONFLICT(user_id) DO UPDATE SET save_json=excluded.save_json,updated_at=excluded.updated_at WHERE player_saves.updated_at IS ?"
+    ).bind(user.id, JSON.stringify(save), nextVersion, expectedUpdatedAt).run();
+    if (!result.meta || Number(result.meta.changes || 0) !== 1) {
+      stage = "save_put_read_conflict";
+      const current = await env.DB.prepare("SELECT save_json,updated_at FROM player_saves WHERE user_id=?").bind(user.id).first();
+      return json({ error: "云端存档已被其他设备或管理操作更新，本次旧版本写入已拒绝", code: "SAVE_VERSION_CONFLICT", save: current ? JSON.parse(current.save_json) : null, updatedAt: current ? current.updated_at : null }, 409);
+    }
     stage = "save_put_complete";
-    return json({ ok: true, updatedAt: now });
+    return json({ ok: true, updatedAt: nextVersion });
   }
 
 
