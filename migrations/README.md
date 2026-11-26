@@ -32,23 +32,22 @@ before applying the backfill.
 ## Preflight: find missing, non-integer, negative, or out-of-range balances
 
 ```sql
-SELECT
-  user_id,
-  CASE
-    WHEN save_json IS NULL OR json_valid(save_json) = 0 THEN 'invalid_json'
-    WHEN json_type(save_json, '$.coins') IS NULL THEN 'missing_coins'
-    WHEN json_type(save_json, '$.coins') <> 'integer' THEN 'coins_not_integer'
-    WHEN json_extract(save_json, '$.coins') < 0 THEN 'coins_negative'
-    WHEN json_extract(save_json, '$.coins') > 9999999999 THEN 'coins_out_of_range'
-    ELSE 'ok'
-  END AS issue
-FROM player_saves
-WHERE save_json IS NULL
-   OR json_valid(save_json) = 0
-   OR json_type(save_json, '$.coins') IS NULL
-   OR json_type(save_json, '$.coins') <> 'integer'
-   OR json_extract(save_json, '$.coins') < 0
-   OR json_extract(save_json, '$.coins') > 9999999999;
+WITH classified AS (
+  SELECT
+    user_id,
+    CASE
+      WHEN save_json IS NULL OR json_valid(save_json) = 0 THEN 'invalid_json'
+      WHEN json_type(save_json, '$.coins') IS NULL THEN 'missing_coins'
+      WHEN json_type(save_json, '$.coins') <> 'integer' THEN 'coins_not_integer'
+      WHEN json_extract(save_json, '$.coins') < 0 THEN 'coins_negative'
+      WHEN json_extract(save_json, '$.coins') > 9999999999 THEN 'coins_out_of_range'
+      ELSE 'ok'
+    END AS issue
+  FROM player_saves
+)
+SELECT user_id, issue
+FROM classified
+WHERE issue <> 'ok';
 ```
 
 Resolve every returned row before backfill. Also check for accounts without a save:
